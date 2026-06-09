@@ -1,7 +1,7 @@
 # Healthcare Sandbox — Seymour Practice Server
 
 A local FHIR R4-shaped REST API using Spring Boot + SQLite.  
-Synthetic BC patient data. Zero NDA risk. Runs entirely offline.
+Synthetic BC patient data. Runs entirely offline. This is just an experimental project to brush up my HL7 skills and does not contain any real patient data. Please do not use this in production.
 
 ## Prerequisites
 - Java 21+

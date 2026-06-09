@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -24,13 +25,175 @@ public class PatientController {
         return buildBundle("searchset", patients.stream().map(this::toFhir).toList());
     }
 
-    // GET /api/fhir/Patient/{id}
+    // GET /api/fhir/Patient/{id} — supports DB ID or BC PHN (Health Card Number)
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getPatient(@PathVariable Long id) {
-        return patientRepo.findById(id)
-                .map(p -> ResponseEntity.ok(toFhir(p)))
-                .orElse(ResponseEntity.status(404).body(buildOperationOutcome(
-                        "error", "not-found", "Patient with ID " + id + " not found")));
+    public ResponseEntity<Map<String, Object>> getPatient(@PathVariable String id) {
+        // Try looking up by DB ID if numeric
+        if (id.matches("\\d+")) {
+            try {
+                Long longId = Long.parseLong(id);
+                Optional<Patient> p = patientRepo.findById(longId);
+                if (p.isPresent()) {
+                    return ResponseEntity.ok(toFhir(p.get()));
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // Try looking up by Health Card Number (PHN)
+        List<Patient> activePatients = patientRepo.findByActiveTrue();
+        for (Patient p : activePatients) {
+            String hc = p.getHealthCardNumber();
+            if (hc != null) {
+                String normalizedHc = hc.replaceAll("[^0-9]", "");
+                String normalizedId = id.replaceAll("[^0-9]", "");
+                if (hc.equalsIgnoreCase(id) || (normalizedHc.equals(normalizedId) && !normalizedId.isEmpty())) {
+                    return ResponseEntity.ok(toFhir(p));
+                }
+            }
+        }
+
+        return ResponseEntity.status(404).body(buildOperationOutcome(
+                "error", "not-found", "Patient with ID/PHN " + id + " not found"));
+    }
+
+    // GET /api/fhir/Patient?_id=[BC_PHN]
+    @GetMapping(params = "_id")
+    public Map<String, Object> searchByPhn(@RequestParam("_id") String phn) {
+        List<Patient> patients = new ArrayList<>();
+        patientRepo.findByActiveTrue().forEach(p -> {
+            String hc = p.getHealthCardNumber();
+            if (hc != null) {
+                String normalizedHc = hc.replaceAll("[^0-9]", "");
+                String normalizedPhn = phn.replaceAll("[^0-9]", "");
+                if (hc.equalsIgnoreCase(phn) || (normalizedHc.equals(normalizedPhn) && !normalizedPhn.isEmpty())) {
+                    patients.add(p);
+                }
+            }
+        });
+        return buildBundle("searchset", patients.stream().map(this::toFhir).toList());
+    }
+
+    // GET /api/fhir/Patient?identifier=[system]|[value]
+    @GetMapping(params = "identifier")
+    public Map<String, Object> searchByIdentifier(@RequestParam("identifier") String identifier) {
+        String system = null;
+        String value = identifier;
+        if (identifier.contains("|")) {
+            String[] parts = identifier.split("\\|", 2);
+            system = parts[0];
+            value = parts[1];
+        }
+
+        List<Patient> patients = new ArrayList<>();
+        final String finalSystem = system;
+        final String finalValue = value;
+
+        if (finalSystem == null) {
+            patientRepo.findByMrn(finalValue).ifPresent(patients::add);
+            patientRepo.findByActiveTrue().forEach(p -> {
+                if (finalValue.equalsIgnoreCase(p.getHealthCardNumber())) {
+                    patients.add(p);
+                }
+            });
+        } else if (finalSystem.contains("patient-phn") || finalSystem.contains("healthcare-id")) {
+            patientRepo.findByActiveTrue().forEach(p -> {
+                String hc = p.getHealthCardNumber();
+                if (hc != null) {
+                    String normalizedHc = hc.replaceAll("[^0-9]", "");
+                    String normalizedVal = finalValue.replaceAll("[^0-9]", "");
+                    if (hc.equalsIgnoreCase(finalValue) || (normalizedHc.equals(normalizedVal) && !normalizedVal.isEmpty())) {
+                        patients.add(p);
+                    }
+                }
+            });
+        } else {
+            patientRepo.findByMrn(finalValue).ifPresent(patients::add);
+        }
+
+        return buildBundle("searchset", patients.stream().map(this::toFhir).toList());
+    }
+
+    // POST /api/fhir/Patient/$match — Client Registry Services (CRS) matching operation
+    @PostMapping("/$match")
+    public ResponseEntity<Map<String, Object>> patientMatch(@RequestBody Map<String, Object> body) {
+        Map<String, Object> patientResource = null;
+        if ("Parameters".equals(body.get("resourceType"))) {
+            List<Map<String, Object>> params = (List<Map<String, Object>>) body.get("parameter");
+            if (params != null) {
+                for (Map<String, Object> param : params) {
+                    if ("patient".equals(param.get("name")) && param.containsKey("resource")) {
+                        patientResource = (Map<String, Object>) param.get("resource");
+                        break;
+                    }
+                }
+            }
+        } else if ("Patient".equals(body.get("resourceType"))) {
+            patientResource = body;
+        }
+
+        if (patientResource == null) {
+            return ResponseEntity.badRequest().body(buildOperationOutcome(
+                    "error", "invalid", "Missing Patient resource or parameter in request body"));
+        }
+
+        String family = null;
+        String given = null;
+        String birthDate = null;
+
+        List<Map<String, Object>> names = (List<Map<String, Object>>) patientResource.get("name");
+        if (names != null && !names.isEmpty()) {
+            Map<String, Object> nameMap = names.get(0);
+            family = (String) nameMap.get("family");
+            List<String> givens = (List<String>) nameMap.get("given");
+            if (givens != null && !givens.isEmpty()) {
+                given = givens.get(0);
+            }
+        }
+
+        birthDate = (String) patientResource.get("birthDate");
+
+        if (family == null || given == null || birthDate == null) {
+            return ResponseEntity.badRequest().body(buildOperationOutcome(
+                    "error", "business-rule", "Mandatory matching criteria missing: family, given, and birthDate are required."));
+        }
+
+        LocalDate dob;
+        try {
+            dob = LocalDate.parse(birthDate);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(buildOperationOutcome(
+                    "error", "invalid", "Invalid birthDate format. Expected YYYY-MM-DD."));
+        }
+
+        List<Patient> allPatients = patientRepo.findByActiveTrue();
+        List<Map<String, Object>> matchedEntries = new ArrayList<>();
+
+        for (Patient p : allPatients) {
+            boolean matchFamily = p.getLastName().equalsIgnoreCase(family);
+            boolean matchGiven = p.getFirstName().equalsIgnoreCase(given);
+            boolean matchDob = p.getDateOfBirth() != null && p.getDateOfBirth().equals(dob);
+
+            if (matchFamily && matchGiven && matchDob) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("resource", toFhir(p));
+
+                Map<String, Object> search = new LinkedHashMap<>();
+                search.put("mode", "match");
+                search.put("score", 1.0);
+                entry.put("search", search);
+
+                matchedEntries.add(entry);
+            }
+        }
+
+        Map<String, Object> bundle = new LinkedHashMap<>();
+        bundle.put("resourceType", "Bundle");
+        bundle.put("type", "searchset");
+        bundle.put("total", matchedEntries.size());
+        bundle.put("timestamp", LocalDateTime.now().toString());
+        bundle.put("entry", matchedEntries);
+
+        return ResponseEntity.ok(bundle);
     }
 
     // GET /api/fhir/Patient?name=chen
