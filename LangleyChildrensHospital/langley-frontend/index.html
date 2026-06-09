@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Langley Children's Hospital — Patient Sync Console</title>
+  <!-- Google Fonts Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- Background Glows -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="hospital-cross">
+          <span></span>
+          <span></span>
+        </div>
+        <div class="logo-text">
+          <h1>Langley Children's Hospital</h1>
+          <p>EHR Synchronization & Care Portal</p>
+        </div>
+      </div>
+      <div class="sync-status">
+        <span class="status-indicator connected" id="connection-indicator"></span>
+        <span class="status-label" id="connection-label">Connecting to Seymour API...</span>
+        <div class="pulse-ring"></div>
+      </div>
+    </header>
+
+    <!-- Metrics Bar -->
+    <section class="metrics-grid">
+      <div class="metric-card glass">
+        <div class="metric-icon total">📂</div>
+        <div class="metric-info">
+          <h3 id="metric-total">0</h3>
+          <p>Total Synced Patients</p>
+        </div>
+      </div>
+      <div class="metric-card glass">
+        <div class="metric-icon admitted">🩺</div>
+        <div class="metric-info">
+          <h3 id="metric-admitted" class="text-glow-green">0</h3>
+          <p>Currently Admitted</p>
+        </div>
+      </div>
+      <div class="metric-card glass">
+        <div class="metric-icon discharged">🏠</div>
+        <div class="metric-info">
+          <h3 id="metric-discharged">0</h3>
+          <p>Discharged / Outpatient</p>
+        </div>
+      </div>
+      <div class="metric-card glass">
+        <div class="metric-icon sync-time">🔄</div>
+        <div class="metric-info">
+          <h3 id="metric-last-sync">--:--:--</h3>
+          <p>Last Sync Checked</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search & Filter Controls -->
+    <section class="controls-panel glass">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search patients by name, MRN, or Seymour ID..." autocomplete="off">
+      </div>
+      <div class="filters">
+        <button class="filter-btn active" data-status="all">All Records</button>
+        <button class="filter-btn" data-status="admitted">Admitted</button>
+        <button class="filter-btn" data-status="discharged">Discharged</button>
+      </div>
+      <button class="refresh-btn" id="refresh-button">
+        <span class="refresh-icon">🔄</span> Sync Now
+      </button>
+    </section>
+
+    <!-- Patients View -->
+    <main class="patients-section">
+      <div class="section-header">
+        <h2>Synced Patient Roster</h2>
+        <span class="roster-count" id="roster-count">0 patients listed</span>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-state" id="loading-state">
+        <div class="spinner"></div>
+        <p>Loading synchronized patient data...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state hidden" id="empty-state">
+        <div class="empty-icon">📡</div>
+        <h3>No Patients Synced Yet</h3>
+        <p>Ensure the Seymour FHIR Server is running on port 8080, Langley Backend is running on port 8081, and you trigger an ADT action (Register, Admit, or Discharge) in Seymour.</p>
+        <div class="waiting-indicator">
+          <span></span><span></span><span></span>
+          Listening for webhook events...
+        </div>
+      </div>
+
+      <!-- Patients Grid -->
+      <div class="patients-grid hidden" id="patients-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay hidden" id="detail-modal">
+    <div class="modal-container glass">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <div class="modal-header">
+        <div class="modal-avatar" id="modal-avatar">MC</div>
+        <div class="modal-title-desc">
+          <h2 id="modal-name">Margaret Chen</h2>
+          <span class="badge" id="modal-status-badge">Admitted</span>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="info-section">
+          <h3>Identifiers</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>MRN (Medical Record Number)</label>
+              <span id="modal-mrn" class="value copyable">MRN-10001</span>
+            </div>
+            <div class="info-item">
+              <label>Seymour FHIR ID</label>
+              <span id="modal-seymour-id" class="value">1</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h3>Demographics</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Date of Birth</label>
+              <span id="modal-dob" class="value">1948-03-12 (78 years)</span>
+            </div>
+            <div class="info-item">
+              <label>Gender</label>
+              <span id="modal-gender" class="value">Female</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h3>Contact Details</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Phone Number</label>
+              <span id="modal-phone" class="value">604-555-0101</span>
+            </div>
+            <div class="info-item">
+              <label>Email Address</label>
+              <span id="modal-email" class="value">m.chen.patient@example.com</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h3>Clinical Summary</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Health Card Number (PHN)</label>
+              <span id="modal-healthcard" class="value">BC9001234567</span>
+            </div>
+            <div class="info-item">
+              <label>Blood Type</label>
+              <span id="modal-bloodtype" class="value-badge blood">A+</span>
+            </div>
+          </div>
+          <div class="info-item allergy-box">
+            <label>Known Allergies</label>
+            <p id="modal-allergies">Penicillin, Sulfa drugs</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span id="modal-synced-at">Synced: 2026-06-08 17:17:26</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script JS -->
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

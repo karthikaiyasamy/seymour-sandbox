@@ -1,0 +1,302 @@
+package com.healthcare.sandbox.service;
+
+import com.healthcare.sandbox.model.AdtEvent;
+import com.healthcare.sandbox.model.Patient;
+import com.healthcare.sandbox.repository.PatientRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class Hl7Service {
+
+    private final PatientRepository patientRepo;
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    /**
+     * Generates a pipe-delimited HL7 v2.4 ADT message from an AdtEvent.
+     */
+    public String generateHl7(AdtEvent event) {
+        Patient patient = event.getPatient();
+        String dobStr = patient.getDateOfBirth() != null ? patient.getDateOfBirth().format(DATE_FORMATTER) : "";
+        String eventTimeStr = event.getEventDatetime() != null ? event.getEventDatetime().format(DATETIME_FORMATTER) : LocalDateTime.now().format(DATETIME_FORMATTER);
+
+        String genderCode = "U";
+        if (patient.getGender() != null) {
+            String g = patient.getGender().toLowerCase();
+            if (g.startsWith("m")) genderCode = "M";
+            else if (g.startsWith("f")) genderCode = "F";
+            else if (g.startsWith("o")) genderCode = "O";
+        }
+
+        String patientClassCode = "O";
+        if (event.getPatientClass() != null) {
+            String pc = event.getPatientClass().toUpperCase();
+            if (pc.contains("INPATIENT")) patientClassCode = "I";
+            else if (pc.contains("EMERGENCY")) patientClassCode = "E";
+            else if (pc.contains("OUTPATIENT")) patientClassCode = "O";
+        }
+
+        // 1. MSH Segment
+        String msh = String.format("MSH|^~\\&|SANDBOX_EHR|%s|REC_APP|REC_FAC|%s||ADT^%s^ADT_%s|MSG%05d|P|2.4",
+                escape(event.getFacility()), eventTimeStr, event.getEventCode(), event.getEventCode(), event.getId() != null ? event.getId() : 1);
+
+        // 2. PID Segment
+        String addressLine = patient.getAddressLine() != null ? patient.getAddressLine() : "";
+        String city = patient.getCity() != null ? patient.getCity() : "";
+        String province = patient.getProvince() != null ? patient.getProvince() : "";
+        String postalCode = patient.getPostalCode() != null ? patient.getPostalCode() : "";
+        String pid = String.format("PID|1||%s^^^MRN||%s^%s||%s|%s|||%s^^%s^%s^%s^CA||%s||||||%s",
+                patient.getMrn(), escape(patient.getLastName()), escape(patient.getFirstName()),
+                dobStr, genderCode, escape(addressLine), escape(city), escape(province), escape(postalCode),
+                patient.getPhone() != null ? patient.getPhone() : "",
+                patient.getHealthCardNumber() != null ? patient.getHealthCardNumber() : "");
+
+        // 3. PV1 Segment
+        String ward = event.getWard() != null ? event.getWard() : "";
+        String room = event.getRoom() != null ? event.getRoom() : "";
+        String bed = event.getBed() != null ? event.getBed() : "";
+        String facility = event.getFacility() != null ? event.getFacility() : "";
+        String pv1 = String.format("PV1|1|%s|%s^%s^%s^%s||||%s|||||||||||%s|||||||||||||||||||||||||%s",
+                patientClassCode, escape(ward), escape(room), escape(bed), escape(facility),
+                escape(event.getAttendingPhysician()), event.getVisitNumber(), eventTimeStr);
+
+        // 4. DG1 Segment
+        String dg1 = "";
+        if (event.getAdmittingDiagnosis() != null && !event.getAdmittingDiagnosis().isEmpty()) {
+            dg1 = "\nDG1|1||||" + escape(event.getAdmittingDiagnosis());
+        }
+
+        return msh + "\n" + pid + "\n" + pv1 + (dg1.isEmpty() ? "" : dg1);
+    }
+
+    /**
+     * Parses a pipe-delimited HL7 v2 ADT message and returns an AdtEvent.
+     * Registers a new patient if the MRN is not already found in the database.
+     */
+    public AdtEvent parseHl7(String hl7Text) {
+        String[] lines = hl7Text.split("[\\r\\n]+");
+        
+        String eventType = "ADMIT";
+        String eventCode = "A01";
+        LocalDateTime eventDatetime = LocalDateTime.now();
+        
+        // Patient demographics
+        String mrn = null;
+        String lastName = "";
+        String firstName = "";
+        LocalDate dob = null;
+        String gender = "unknown";
+        String phone = "";
+        String addressLine = "";
+        String city = "";
+        String province = "BC";
+        String postalCode = "";
+        String healthCardNumber = "";
+
+        // Encounter details
+        String patientClass = "OUTPATIENT";
+        String ward = null;
+        String room = null;
+        String bed = null;
+        String facility = "Unknown Facility";
+        String attendingPhysician = "";
+        String visitNumber = null;
+        String admittingDiagnosis = null;
+
+        for (String line : lines) {
+            String[] fields = line.split("\\|");
+            if (fields.length == 0) continue;
+            
+            String segmentName = fields[0];
+            switch (segmentName) {
+                case "MSH":
+                    if (fields.length > 8) {
+                        String eventStr = fields[8]; // e.g. ADT^A01^ADT_A01
+                        String[] subfields = eventStr.split("\\^");
+                        if (subfields.length > 1) {
+                            eventCode = subfields[1];
+                            eventType = mapEventCodeToType(eventCode);
+                        }
+                    }
+                    if (fields.length > 6) {
+                        eventDatetime = parseDateTime(fields[6]);
+                    }
+                    break;
+
+                case "PID":
+                    if (fields.length > 3) {
+                        mrn = parseSubfield(fields[3], 0);
+                    }
+                    if (fields.length > 5) {
+                        lastName = parseSubfield(fields[5], 0);
+                        firstName = parseSubfield(fields[5], 1);
+                    }
+                    if (fields.length > 7) {
+                        dob = parseDate(fields[7]);
+                    }
+                    if (fields.length > 8) {
+                        String g = fields[8];
+                        if ("M".equalsIgnoreCase(g)) gender = "male";
+                        else if ("F".equalsIgnoreCase(g)) gender = "female";
+                        else if ("O".equalsIgnoreCase(g)) gender = "other";
+                    }
+                    if (fields.length > 11) {
+                        addressLine = parseSubfield(fields[11], 0);
+                        city = parseSubfield(fields[11], 2);
+                        province = parseSubfield(fields[11], 3);
+                        postalCode = parseSubfield(fields[11], 4);
+                    }
+                    if (fields.length > 13) {
+                        phone = fields[13];
+                    }
+                    if (fields.length > 19) {
+                        healthCardNumber = fields[19];
+                    }
+                    break;
+
+                case "PV1":
+                    if (fields.length > 2) {
+                        String pc = fields[2];
+                        if ("I".equalsIgnoreCase(pc)) patientClass = "INPATIENT";
+                        else if ("E".equalsIgnoreCase(pc)) patientClass = "EMERGENCY";
+                        else if ("O".equalsIgnoreCase(pc)) patientClass = "OUTPATIENT";
+                    }
+                    if (fields.length > 3) {
+                        ward = parseSubfield(fields[3], 0);
+                        room = parseSubfield(fields[3], 1);
+                        bed = parseSubfield(fields[3], 2);
+                        facility = parseSubfield(fields[3], 3);
+                    }
+                    if (fields.length > 7) {
+                        attendingPhysician = parseSubfield(fields[7], 0);
+                    }
+                    if (fields.length > 19) {
+                        visitNumber = fields[19];
+                    }
+                    break;
+
+                case "DG1":
+                    if (fields.length > 5) {
+                        admittingDiagnosis = parseSubfield(fields[5], 1);
+                        if (admittingDiagnosis == null || admittingDiagnosis.isEmpty()) {
+                            admittingDiagnosis = parseSubfield(fields[5], 0);
+                        }
+                    }
+                    break;
+            }
+        }
+
+        if (mrn == null || mrn.isEmpty()) {
+            throw new IllegalArgumentException("HL7 message is missing Patient MRN (PID-3)");
+        }
+
+        if (visitNumber == null || visitNumber.isEmpty()) {
+            visitNumber = "VN-" + System.currentTimeMillis() % 1000000;
+        }
+
+        // Find or create patient
+        final String finalMrn = mrn;
+        final String finalFirstName = firstName;
+        final String finalLastName = lastName;
+        final LocalDate finalDob = dob;
+        final String finalGender = gender;
+        final String finalPhone = phone;
+        final String finalAddressLine = addressLine;
+        final String finalCity = city;
+        final String finalProvince = province;
+        final String finalPostalCode = postalCode;
+        final String finalHealthCardNumber = healthCardNumber;
+
+        Patient patient = patientRepo.findByMrn(mrn).orElseGet(() -> {
+            log.info("HL7 Parser: MRN {} not found. Registering new patient: {} {}", finalMrn, finalFirstName, finalLastName);
+            return patientRepo.save(Patient.builder()
+                    .mrn(finalMrn)
+                    .firstName(finalFirstName)
+                    .lastName(finalLastName)
+                    .dateOfBirth(finalDob)
+                    .gender(finalGender)
+                    .phone(finalPhone)
+                    .addressLine(finalAddressLine)
+                    .city(finalCity)
+                    .province(finalProvince)
+                    .postalCode(finalPostalCode)
+                    .healthCardNumber(finalHealthCardNumber)
+                    .active(true)
+                    .build());
+        });
+
+        return AdtEvent.builder()
+                .patient(patient)
+                .eventType(eventType)
+                .eventCode(eventCode)
+                .eventDatetime(eventDatetime)
+                .facility(facility)
+                .ward(ward)
+                .room(room)
+                .bed(bed)
+                .attendingPhysician(attendingPhysician)
+                .admittingDiagnosis(admittingDiagnosis)
+                .visitNumber(visitNumber)
+                .patientClass(patientClass)
+                .notes("Generated via HL7 v2 Message parsing.")
+                .build();
+    }
+
+    private String mapEventCodeToType(String code) {
+        return switch (code) {
+            case "A01" -> "ADMIT";
+            case "A02" -> "TRANSFER";
+            case "A03" -> "DISCHARGE";
+            case "A04" -> "REGISTER";
+            case "A08" -> "UPDATE";
+            default -> "UPDATE";
+        };
+    }
+
+    private String parseSubfield(String field, int index) {
+        if (field == null) return "";
+        String[] parts = field.split("\\^");
+        if (parts.length > index) {
+            return parts[index].trim();
+        }
+        return parts.length > 0 && index == 0 ? parts[0].trim() : "";
+    }
+
+    private LocalDate parseDate(String val) {
+        try {
+            if (val.length() >= 8) {
+                return LocalDate.parse(val.substring(0, 8), DATE_FORMATTER);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to parse HL7 date: {}", val);
+        }
+        return null;
+    }
+
+    private LocalDateTime parseDateTime(String val) {
+        try {
+            if (val.length() >= 14) {
+                return LocalDateTime.parse(val.substring(0, 14), DATETIME_FORMATTER);
+            } else if (val.length() >= 8) {
+                return LocalDate.parse(val.substring(0, 8), DATE_FORMATTER).atStartOfDay();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to parse HL7 datetime: {}", val);
+        }
+        return LocalDateTime.now();
+    }
+
+    private String escape(String str) {
+        if (str == null) return "";
+        return str.replace("|", "\\F\\").replace("^", "\\S\\").replace("&", "\\T\\");
+    }
+}

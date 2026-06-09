@@ -1,0 +1,17 @@
+package com.healthcare.sandbox.repository;
+
+import com.healthcare.sandbox.model.Medication;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface MedicationRepository extends JpaRepository<Medication, Long> {
+
+    List<Medication> findByPatientIdOrderByStartDateDesc(Long patientId);
+
+    List<Medication> findByPatientIdAndStatus(Long patientId, String status);
+
+    List<Medication> findByVisitNumber(String visitNumber);
+}

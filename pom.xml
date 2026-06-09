@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.healthcare</groupId>
+    <artifactId>seymour-sandbox-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>Healthcare Sandbox - Parent</name>
+    <description>Parent pom for local healthcare developer sandbox</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <hapi.version>7.0.2</hapi.version>
+        <lombok.version>1.18.46</lombok.version>
+    </properties>
+
+    <modules>
+        <module>SeymorFHIR</module>
+        <module>LangleyChildrensHospital/langley-backend</module>
+    </modules>
+</project>
