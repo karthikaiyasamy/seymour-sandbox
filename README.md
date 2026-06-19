@@ -145,10 +145,25 @@ Resources are shaped like FHIR R4 and follow Canadian clinical baselines:
 
 ---
 
-## Next Steps (practice exercises)
-1. Add lab results (Observation resource)
-2. Add allergy list as AllergyIntolerance resource
-3. Connect to real external sandboxes (e.g., code.cerner.com)
-4. Expand the OAuth2 simulation to validate token signatures (JWT)
-5. Build an app to launch using the simulated SMART on FHIR OAuth2 flow
+## Mirth Connect Integration (Open Source)
+
+The local HL7 v2 workflow is mediated by **Mirth Connect** (open source integration engine) to simulate real-world interface connectivity:
+
+1. **Seymour** triggers pediatric immunization (`VXU`) or lab result (`ORU`) events via the ADT Console.
+2. **Seymour** serializes these records to HL7 v2 and transmits the pipe-delimited raw stream over TCP.
+3. **Mirth Connect** (listening on TCP port `9085`) receives the message, parses the HL7 v2 segments (`PID`, `RXA`, `OBX`), maps the data into a JSON payload, and HTTP POSTs the data to **Langley Children's Hospital's** webhook sync endpoint (`http://localhost:8081/api/langley/pediatric/sync`).
+4. **Langley Backend** updates the database and the changes are auto-polled and rendered on the **Patient Sync Console** (Vite frontend).
+
+### Mirth Channel Setup Tips:
+* **Source:** TCP Listener (MLLP) on port `9085`.
+* **Destination:** HTTP Sender targeting `http://localhost:8081/api/langley/pediatric/sync` with header `Content-Type: application/json`.
+* **Mapping Expression:** Use direct sub-component mapping (e.g. `msg['OBX']['OBX.14']['OBX.14.1'].toString()`) to ensure date stamps do not contain raw XML tags.
+
+---
+
+## Next Steps & Practice Exercises
+1. **Extend FHIR Coverage:** Map allergy lists to standard `AllergyIntolerance` FHIR resources.
+2. **Token Security:** Expand the OAuth2 simulation to validate token signatures using JSON Web Tokens (JWT).
+3. **App Integration:** Build a SMART-on-FHIR clinical application that launches directly from Seymour using the simulated OAuth2 authorization flow.
+4. **Connect Sandbox:** Integrate with official external EHR test environments (e.g., code.cerner.com).
 
