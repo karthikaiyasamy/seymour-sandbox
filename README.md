@@ -159,11 +159,5 @@ The local HL7 v2 workflow is mediated by **Mirth Connect** (open source integrat
 * **Destination:** HTTP Sender targeting `http://localhost:8081/api/langley/pediatric/sync` with header `Content-Type: application/json`.
 * **Mapping Expression:** Use direct sub-component mapping (e.g. `msg['OBX']['OBX.14']['OBX.14.1'].toString()`) to ensure date stamps do not contain raw XML tags.
 
----
 
-## Next Steps & Practice Exercises
-1. **Extend FHIR Coverage:** Map allergy lists to standard `AllergyIntolerance` FHIR resources.
-2. **Token Security:** Expand the OAuth2 simulation to validate token signatures using JSON Web Tokens (JWT).
-3. **App Integration:** Build a SMART-on-FHIR clinical application that launches directly from Seymour using the simulated OAuth2 authorization flow.
-4. **Connect Sandbox:** Integrate with official external EHR test environments (e.g., code.cerner.com).
 
