@@ -1,11 +1,12 @@
 # Healthcare Sandbox — Seymour Practice Server
 
-A local FHIR R4-shaped REST API using Spring Boot + SQLite.  
+A local FHIR R4-shaped REST API using Spring Boot + PostgreSQL.  
 Synthetic BC patient data. Runs entirely offline. This is just an experimental project to brush up my HL7 skills and does not contain any real patient data. Please do not use this in production.
 
 ## Prerequisites
 - Java 21+
 - Maven 3.8+
+- PostgreSQL (running locally on port 5432)
 
 ## Quick Start
 
@@ -14,7 +15,7 @@ cd seymour-sandbox
 mvn clean spring-boot:run
 ```
 
-Server starts at: **http://localhost:8080**
+Server starts at: **http://localhost:8090** (formerly 8080)
 
 On first run, the database is auto-seeded with **4 synthetic patients**:
 - Margaret Chen (MRN-10001) — T2DM, hyperglycemia, 7-day admission + transfer + discharge
@@ -22,7 +23,9 @@ On first run, the database is auto-seeded with **4 synthetic patients**:
 - Aisha Patel (MRN-10003) — Pediatric acute asthma exacerbation
 - Fatima Al-Rashid (MRN-10004) — Prenatal 28-week outpatient visit
 
-Database file: `healthcare-sandbox.db` (created in project root, SQLite)
+Databases:
+- **Seymour Sandbox DB:** `seymour_db` (PostgreSQL)
+- **Langley Hospital DB:** `langley_db` (PostgreSQL)
 
 ---
 

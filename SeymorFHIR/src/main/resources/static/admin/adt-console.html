@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CST Seymour Millennium — Practice ADT Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>CST Seymour Millennium — Practice Console</title>
+    <!-- Google Fonts Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
         :root {
             --bg-color: #0b0f19;
-            --card-bg: rgba(20, 27, 45, 0.7);
+            --card-bg: rgba(17, 24, 39, 0.7);
             --card-border: rgba(255, 255, 255, 0.08);
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --accent-cyan: #06b6d4;
             --accent-blue: #3b82f6;
-            --accent-green: #10b981;
+            --accent-purple: #8b5cf6;
             --accent-red: #ef4444;
+            --accent-green: #10b981;
             --accent-glow: rgba(6, 182, 212, 0.15);
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
@@ -27,23 +32,24 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
         }
 
         header {
-            background-color: rgba(11, 15, 25, 0.8);
+            background-color: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--card-border);
-            padding: 1rem 2rem;
+            padding: 1.25rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -53,10 +59,10 @@
         }
 
         .header-logo {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 30%, var(--text-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             display: flex;
@@ -64,18 +70,8 @@
             gap: 0.5rem;
         }
 
-        .header-logo::before {
-            content: '';
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: var(--accent-cyan);
-            box-shadow: 0 0 10px var(--accent-cyan);
-        }
-
         .badge {
-            background: rgba(6, 182, 212, 0.1);
+            background-color: rgba(6, 182, 212, 0.1);
             color: var(--accent-cyan);
             border: 1px solid rgba(6, 182, 212, 0.2);
             padding: 0.25rem 0.75rem;
@@ -84,6 +80,33 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+        }
+
+        .tab-nav {
+            grid-column: span 2;
+            display: flex;
+            gap: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 1.05rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: var(--transition);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom-color: var(--accent-cyan);
         }
 
         main {
@@ -100,6 +123,9 @@
         @media (max-width: 1024px) {
             main {
                 grid-template-columns: 1fr;
+            }
+            .tab-nav {
+                grid-column: span 1;
             }
         }
 
@@ -213,7 +239,6 @@
             transform: translateY(0);
         }
 
-        /* Payload / Console display */
         .terminal-panel {
             background-color: #05070c;
             border: 1px solid var(--card-border);
@@ -273,7 +298,6 @@
             padding: 0;
         }
 
-        /* Tables */
         .table-container {
             border: 1px solid var(--card-border);
             border-radius: 12px;
@@ -344,7 +368,6 @@
             }
         }
 
-        /* Notifications & status */
         .status-banner {
             padding: 1rem;
             border-radius: 8px;
@@ -426,8 +449,15 @@
     </header>
 
     <main>
-        <!-- Form Panel -->
-        <div class="card">
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button id="btn-tab-adt" class="tab-btn active" onclick="switchTab('adt')">ADT Console</button>
+            <button id="btn-tab-pediatric" class="tab-btn" onclick="switchTab('pediatric')">Pediatric Gateway (HL7)</button>
+        </div>
+
+        <!-- ================= ADT TAB PANELS ================= -->
+        <!-- ADT Form Card -->
+        <div id="panel-adt-form" class="card">
             <h2>Fire ADT Notification Event</h2>
             
             <div id="status-banner" class="status-banner"></div>
@@ -495,7 +525,7 @@
                             <label for="patient-select">Select Patient *</label>
                             <button type="button" id="toggle-register-btn" class="badge" style="cursor: pointer; background: rgba(59, 130, 246, 0.1); color: var(--accent-cyan); border-color: rgba(6, 182, 212, 0.2); transition: var(--transition);">+ Register New Patient</button>
                         </div>
-                        <select id="patient-select">
+                        <select id="patient-select" onchange="checkSelectedPatientAge()">
                             <option value="">-- Choose Patient --</option>
                         </select>
                     </div>
@@ -521,17 +551,17 @@
 
                     <div class="form-group">
                         <label for="facility">Facility</label>
-                        <input type="text" id="facility" value="Vancouver General Hospital">
+                        <input type="text" id="facility" value="Surrey Memorial Hospital">
                     </div>
 
                     <div class="form-group">
                         <label for="ward">Ward</label>
-                        <input type="text" id="ward" placeholder="e.g. Telemetry, ICU">
+                        <input type="text" id="ward" placeholder="e.g. Pediatrics, ICU">
                     </div>
 
                     <div class="form-group">
                         <label for="room">Room</label>
-                        <input type="text" id="room" placeholder="e.g. 516">
+                        <input type="text" id="room" placeholder="e.g. 301">
                     </div>
 
                     <div class="form-group">
@@ -551,7 +581,7 @@
 
                     <div class="form-group full-width">
                         <label for="admitting-diagnosis">Admitting Diagnosis</label>
-                        <input type="text" id="admitting-diagnosis" placeholder="e.g. Uncontrolled Hyperglycemia">
+                        <input type="text" id="admitting-diagnosis" placeholder="e.g. Acute Asthma Exacerbation">
                     </div>
 
                     <div class="form-group full-width">
@@ -572,10 +602,9 @@
             </form>
         </div>
 
-        <!-- Terminal & Real-Time Sent payload Panel -->
-        <div class="card">
+        <!-- ADT Payload Card -->
+        <div id="panel-adt-payload" class="card">
             <h2>Last Sent Webhook Payload</h2>
-            
             <div class="terminal-panel">
                 <div class="terminal-header">
                     <div class="terminal-dots">
@@ -591,8 +620,117 @@
             </div>
         </div>
 
+        <!-- ================= PEDIATRIC TAB PANELS ================= -->
+        <!-- Pediatric Records Form Card -->
+        <div id="panel-pediatric-form" class="card" style="display: none;">
+            <h2>Submit Pediatric Record (HL7 Generation)</h2>
+            <div id="pediatric-status-banner" class="status-banner"></div>
+            
+            <div id="pediatric-warning" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-red); color: #fda4af; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;">
+                ⚠️ <strong>Note:</strong> Selected patient is 18 years or older. Usually, immunizations and pediatric test panels are routed for children.
+            </div>
+
+            <form id="pediatric-form">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="ped-patient-select">Pediatric Patient *</label>
+                        <select id="ped-patient-select" onchange="checkSelectedPedPatientAge()">
+                            <option value="">-- Choose Patient --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="record-type">Record Category *</label>
+                        <select id="record-type" onchange="toggleRecordFields()">
+                            <option value="vaccination">Immunization / Vaccination (VXU^V04)</option>
+                            <option value="lab">Laboratory Observation Result (ORU^R01)</option>
+                        </select>
+                    </div>
+
+                    <!-- Vaccination fields -->
+                    <div class="form-group p-field vaccine-field">
+                        <label for="vac-code">Vaccine CVX Code *</label>
+                        <select id="vac-code" onchange="updateVaccineName()">
+                            <option value="03">03 — MMR (Measles, Mumps, Rubella)</option>
+                            <option value="110">110 — DTaP-HepB-IPV</option>
+                            <option value="10">10 — IPV (Polio)</option>
+                            <option value="08">08 — HepB (Hepatitis B)</option>
+                            <option value="83">83 — HepA (Hepatitis A)</option>
+                        </select>
+                    </div>
+                    <div class="form-group p-field vaccine-field">
+                        <label for="vac-name">Vaccine Name</label>
+                        <input type="text" id="vac-name" value="MMR">
+                    </div>
+                    <div class="form-group p-field vaccine-field">
+                        <label for="vac-date">Date Administered</label>
+                        <input type="datetime-local" id="vac-date">
+                    </div>
+                    <div class="form-group p-field vaccine-field">
+                        <label for="vac-lot">Lot Number</label>
+                        <input type="text" id="vac-lot" value="LOT12345">
+                    </div>
+
+                    <!-- Lab fields -->
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-code">LOINC Code *</label>
+                        <input type="text" id="lab-code" value="100-8">
+                    </div>
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-name">Test / Result Name *</label>
+                        <input type="text" id="lab-name" value="Lead Level">
+                    </div>
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-value">Observation Value *</label>
+                        <input type="text" id="lab-value" placeholder="e.g. 3.2, Positive">
+                    </div>
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-unit">Result Units</label>
+                        <input type="text" id="lab-unit" value="ug/dL">
+                    </div>
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-flag">Abnormal Flag</label>
+                        <select id="lab-flag">
+                            <option value="N">N — Normal</option>
+                            <option value="A">A — Abnormal</option>
+                            <option value="H">H — High</option>
+                            <option value="L">L — Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group p-field lab-field" style="display: none;">
+                        <label for="lab-date">Date of Test</label>
+                        <input type="datetime-local" id="lab-date">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" style="margin-top: 1.5rem; width: 100%; background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan)); box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    Send to Mirth (HL7 Gateway)
+                </button>
+            </form>
+        </div>
+
+        <!-- Pediatric HL7 Output Console Card -->
+        <div id="panel-pediatric-payload" class="card" style="display: none;">
+            <h2>Transmitted HL7 Message</h2>
+            <div class="terminal-panel">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <div class="terminal-dot red"></div>
+                        <div class="terminal-dot yellow"></div>
+                        <div class="terminal-dot green"></div>
+                    </div>
+                    <span>transmitted_message.hl7</span>
+                </div>
+                <div class="terminal-body">
+                    <textarea id="hl7-payload" readonly placeholder="// HL7 v2.4 message stream will appear here after transmitting..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= LOG PANEL (Common) ================= -->
         <!-- Live ADT Log Panel -->
-        <div class="card log-section">
+        <div class="card log-section" id="adt-log-section">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Live ADT Event Log (Last 20)</h2>
                 <div style="font-size: 0.8rem; color: var(--text-secondary);" id="refresh-counter">Refreshing in 10s...</div>
@@ -622,10 +760,91 @@
     </main>
 
     <script>
-        // Caches mappings of Patient Database ID -> MRN and ID -> Name
+        // Caches mappings of Patient Database ID -> { mrn, name, age }
         const patientCache = {};
         let refreshSeconds = 10;
         let refreshInterval = null;
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            const adtBtn = document.getElementById('btn-tab-adt');
+            const pedBtn = document.getElementById('btn-tab-pediatric');
+
+            const adtForm = document.getElementById('panel-adt-form');
+            const adtPayload = document.getElementById('panel-adt-payload');
+            const pedForm = document.getElementById('panel-pediatric-form');
+            const pedPayload = document.getElementById('panel-pediatric-payload');
+
+            if (tabId === 'adt') {
+                adtBtn.classList.add('active');
+                pedBtn.classList.remove('active');
+                adtForm.style.display = 'flex';
+                adtPayload.style.display = 'flex';
+                pedForm.style.display = 'none';
+                pedPayload.style.display = 'none';
+            } else {
+                adtBtn.classList.remove('active');
+                pedBtn.classList.add('active');
+                adtForm.style.display = 'none';
+                adtPayload.style.display = 'none';
+                pedForm.style.display = 'flex';
+                pedPayload.style.display = 'flex';
+            }
+        }
+
+        // Toggle record fields between Vaccine and Lab
+        function toggleRecordFields() {
+            const recordType = document.getElementById('record-type').value;
+            const vaccineFields = document.querySelectorAll('.vaccine-field');
+            const labFields = document.querySelectorAll('.lab-field');
+
+            if (recordType === 'vaccination') {
+                vaccineFields.forEach(el => el.style.display = 'flex');
+                labFields.forEach(el => el.style.display = 'none');
+            } else {
+                vaccineFields.forEach(el => el.style.display = 'none');
+                labFields.forEach(el => el.style.display = 'flex');
+            }
+        }
+
+        function updateVaccineName() {
+            const select = document.getElementById('vac-code');
+            const selectedText = select.options[select.selectedIndex].textContent;
+            const vacNameInput = document.getElementById('vac-name');
+            // Extract the name part after " — "
+            const name = selectedText.split(' — ')[1].split(' (')[0];
+            vacNameInput.value = name;
+        }
+
+        // Calculate age helper
+        function calculateAge(birthDateString) {
+            if (!birthDateString) return null;
+            const birthDate = new Date(birthDateString);
+            const difference = Date.now() - birthDate.getTime();
+            const ageDate = new Date(difference);
+            return Math.abs(ageDate.getUTCFullYear() - 1970);
+        }
+
+        function checkSelectedPatientAge() {
+            const patientId = document.getElementById('patient-select').value;
+            // No warning here as ADT console allows adults
+        }
+
+        function checkSelectedPedPatientAge() {
+            const patientId = document.getElementById('ped-patient-select').value;
+            const warningEl = document.getElementById('pediatric-warning');
+            
+            if (patientId && patientCache[patientId]) {
+                const age = patientCache[patientId].age;
+                if (age !== null && age >= 18) {
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
+            } else {
+                warningEl.style.display = 'none';
+            }
+        }
 
         // Fetch all patients on load to populate select list
         async function loadPatients() {
@@ -635,7 +854,11 @@
                 const bundle = await response.json();
                 
                 const select = document.getElementById('patient-select');
+                const pedSelect = document.getElementById('ped-patient-select');
                 
+                select.innerHTML = '<option value="">-- Choose Patient --</option>';
+                pedSelect.innerHTML = '<option value="">-- Choose Patient --</option>';
+
                 if (bundle.entry && bundle.entry.length > 0) {
                     bundle.entry.forEach(entry => {
                         const p = entry.resource;
@@ -656,14 +879,17 @@
                             if (mrnIdent) mrn = mrnIdent.value;
                         }
                         
+                        const age = calculateAge(p.birthDate);
+                        
                         // Cache for lookup
-                        patientCache[patientId] = { mrn, name };
+                        patientCache[patientId] = { mrn, name, age };
                         
                         // Append to select options
                         const option = document.createElement('option');
                         option.value = patientId;
-                        option.textContent = `${mrn} — ${name}`;
-                        select.appendChild(option);
+                        option.textContent = `${mrn} — ${name} (${age !== null ? age + ' yrs' : 'unknown age'})`;
+                        select.appendChild(option.cloneNode(true));
+                        pedSelect.appendChild(option);
                     });
                 }
             } catch (err) {
@@ -751,8 +977,8 @@
         }
 
         // Show success/error notifications
-        function showStatus(message, type) {
-            const banner = document.getElementById('status-banner');
+        function showStatus(message, type, target = 'status-banner') {
+            const banner = document.getElementById(target);
             banner.textContent = message;
             banner.className = `status-banner ${type}`;
             banner.style.display = 'block';
@@ -779,11 +1005,10 @@
             }, 1000);
         }
 
-        // Form submission handling
+        // ADT Form submission handling
         document.getElementById('adt-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Check if registration panel is currently open
             const registerPanel = document.getElementById('register-patient-panel');
             if (registerPanel && registerPanel.style.display !== 'none') {
                 showStatus('Please complete or cancel the patient registration before firing an ADT event.', 'error');
@@ -808,13 +1033,11 @@
                 return;
             }
 
-            // Auto generate Visit Number if blank
             if (!visitNumber.trim()) {
                 visitNumber = `VN-${Date.now()}`;
                 document.getElementById('visit-number').value = visitNumber;
             }
 
-            // Map ADT event code
             let eventCode = 'A08';
             if (eventType === 'ADMIT') eventCode = 'A01';
             else if (eventType === 'TRANSFER') eventCode = 'A02';
@@ -823,7 +1046,7 @@
             const payload = {
                 eventType: eventType,
                 eventCode: eventCode,
-                eventDatetime: new Date().toISOString().split('.')[0], // Local format YYYY-MM-DDTHH:MM:SS
+                eventDatetime: new Date().toISOString().split('.')[0],
                 facility: facility,
                 ward: ward,
                 room: room,
@@ -858,7 +1081,6 @@
 
                 showStatus('ADT event fired and logged successfully!', 'success');
                 
-                // Show Webhook JSON Payload in terminal text area
                 const patient = patientCache[patientId] || { mrn: 'Unknown', name: 'Unknown' };
                 const webhookPayload = {
                     patientId: patientId,
@@ -873,7 +1095,6 @@
 
                 document.getElementById('webhook-payload').value = JSON.stringify(webhookPayload, null, 2);
 
-                // UI Polish: Clear fields that change often
                 document.getElementById('ward').value = '';
                 document.getElementById('room').value = '';
                 document.getElementById('bed').value = '';
@@ -881,7 +1102,6 @@
                 document.getElementById('visit-number').value = '';
                 document.getElementById('notes').value = '';
 
-                // Load fresh logs immediately
                 loadAdtLogs();
                 resetAutoRefresh();
 
@@ -890,6 +1110,122 @@
                 showStatus(`Failed to fire ADT event: ${err.message}`, 'error');
             }
         });
+
+        // Pediatric Form submission handling
+        document.getElementById('pediatric-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const patientId = document.getElementById('ped-patient-select').value;
+            const category = document.getElementById('record-type').value;
+
+            if (!patientId) {
+                showStatus('Please select a pediatric patient.', 'error', 'pediatric-status-banner');
+                return;
+            }
+
+            let endpoint = '/api/pediatric/vaccine';
+            let payload = {};
+
+            if (category === 'vaccination') {
+                const code = document.getElementById('vac-code').value;
+                const name = document.getElementById('vac-name').value;
+                let date = document.getElementById('vac-date').value;
+                const lot = document.getElementById('vac-lot').value;
+
+                if (!date) {
+                    date = new Date().toISOString().split('.')[0];
+                }
+
+                payload = {
+                    patientId: parseInt(patientId),
+                    vaccineCode: code,
+                    vaccineName: name,
+                    date: date,
+                    lotNumber: lot
+                };
+            } else {
+                endpoint = '/api/pediatric/lab';
+                const code = document.getElementById('lab-code').value;
+                const name = document.getElementById('lab-name').value;
+                const val = document.getElementById('lab-value').value;
+                const unit = document.getElementById('lab-unit').value;
+                const flag = document.getElementById('lab-flag').value;
+                let date = document.getElementById('lab-date').value;
+
+                if (!date) {
+                    date = new Date().toISOString().split('.')[0];
+                }
+
+                if (!val || !name) {
+                    showStatus('Observation value and name are required.', 'error', 'pediatric-status-banner');
+                    return;
+                }
+
+                payload = {
+                    patientId: parseInt(patientId),
+                    testCode: code,
+                    testName: name,
+                    value: val,
+                    unit: unit,
+                    flag: flag,
+                    date: date
+                };
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server rejected HL7 submission');
+                }
+
+                showStatus('Pediatric clinical record submitted to Mirth HL7 gateway!', 'success', 'pediatric-status-banner');
+                
+                // Let's generate a mockup/visual representation of what was sent to Mirth in the textarea
+                const patient = patientCache[patientId] || { mrn: 'Unknown', name: 'Unknown' };
+                const names = patient.name.split(' ');
+                const lastName = names[names.length - 1] || '';
+                const firstName = names[0] || '';
+                const cleanDate = payload.date.replaceAll(/[-T:]/g, '').substring(0, 14);
+                
+                let simulatedHl7 = '';
+                if (category === 'vaccination') {
+                    simulatedHl7 = `MSH|^~\\&|SEYMOUR_EHR|SEYMOUR_CLINIC|MIRTH_INTEGRATION|MIRTH_FACILITY|${cleanDate}||VXU^V04^VXU_V04|MSG${Math.floor(Math.random()*900000+100000)}|P|2.4\n` +
+                                   `PID|1||${patient.mrn}^^^MRN||${lastName}^${firstName}||||||||\n` +
+                                   `ORC|RE|||||||Dr. Arthur Pendelton\n` +
+                                   `RXA|0|1|${cleanDate}|${cleanDate}|${payload.vaccineCode}^${payload.vaccineName}^CVX|0.5|mL^^ISO||00^Administered^NIP||||||${payload.lotNumber}`;
+                } else {
+                    simulatedHl7 = `MSH|^~\\&|SEYMOUR_EHR|SEYMOUR_CLINIC|MIRTH_INTEGRATION|MIRTH_FACILITY|${cleanDate}||ORU^R01^ORU_R01|MSG${Math.floor(Math.random()*900000+100000)}|P|2.4\n` +
+                                   `PID|1||${patient.mrn}^^^MRN||${lastName}^${firstName}||||||||\n` +
+                                   `OBR|1||VN-${Math.floor(Math.random()*90000+10000)}|${payload.testCode}^${payload.testName}^LN|||${cleanDate}\n` +
+                                   `OBX|1|NM|${payload.testCode}^${payload.testName}^LN||${payload.value}|${payload.unit}||${payload.flag}|||F|||${cleanDate}`;
+                }
+
+                document.getElementById('hl7-payload').value = simulatedHl7;
+
+            } catch (err) {
+                console.error(err);
+                showStatus(`Failed to submit: ${err.message}`, 'error', 'pediatric-status-banner');
+            }
+        });
+
+        // Set default dates
+        function setDefaultDates() {
+            const now = new Date();
+            // Format to YYYY-MM-DDTHH:MM
+            const localString = now.getFullYear() + '-' + 
+                                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                                String(now.getDate()).padStart(2, '0') + 'T' + 
+                                String(now.getHours()).padStart(2, '0') + ':' + 
+                                String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('vac-date').value = localString;
+            document.getElementById('lab-date').value = localString;
+        }
 
         // Registration Panel Toggle Handling
         const toggleBtn = document.getElementById('toggle-register-btn');
@@ -911,7 +1247,6 @@
             toggleBtn.textContent = '+ Register New Patient';
         });
 
-        // Intercept Enter key inside register-patient-panel to submit registration instead of ADT form
         registerPanel.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -955,9 +1290,7 @@
             try {
                 const response = await fetch('/api/fhir/Patient', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(patientPayload)
                 });
 
@@ -970,17 +1303,16 @@
                 const createdPatient = await response.json();
                 const patientId = createdPatient.id;
 
-                // Cache the patient details
                 const fullName = `${firstName} ${lastName}`.trim();
-                patientCache[patientId] = { mrn: mrn, name: fullName };
+                const age = calculateAge(dob);
+                patientCache[patientId] = { mrn: mrn, name: fullName, age: age };
 
-                // Add the new option to select dropdown and select it
-                const select = document.getElementById('patient-select');
-                const option = document.createElement('option');
-                option.value = patientId;
-                option.textContent = `${mrn} — ${fullName}`;
-                select.appendChild(option);
-                select.value = patientId;
+                // Update dropdown lists
+                await loadPatients();
+
+                // Select the patient
+                document.getElementById('patient-select').value = patientId;
+                document.getElementById('ped-patient-select').value = patientId;
 
                 // Clear fields
                 document.getElementById('new-mrn').value = '';
@@ -993,11 +1325,11 @@
                 document.getElementById('new-allergies').value = '';
                 document.getElementById('new-healthcard').value = '';
 
-                // Close panel
                 registerPanel.style.display = 'none';
                 toggleBtn.textContent = '+ Register New Patient';
 
                 showStatus(`Registered and selected patient ${fullName} successfully!`, 'success');
+                checkSelectedPedPatientAge();
 
             } catch (err) {
                 console.error(err);
@@ -1009,6 +1341,7 @@
         window.addEventListener('DOMContentLoaded', async () => {
             await loadPatients();
             await loadAdtLogs();
+            setDefaultDates();
             resetAutoRefresh();
         });
     </script>

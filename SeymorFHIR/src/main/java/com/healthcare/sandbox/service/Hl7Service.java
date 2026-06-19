@@ -295,6 +295,41 @@ public class Hl7Service {
         return LocalDateTime.now();
     }
 
+    public String generateVxu(Patient patient, String vaccineCode, String vaccineName, String dateStr, String lotNumber) {
+        String now = LocalDateTime.now().format(DATETIME_FORMATTER);
+        String dob = patient.getDateOfBirth() != null ? patient.getDateOfBirth().format(DATE_FORMATTER) : "";
+        String gender = patient.getGender() != null && !patient.getGender().isEmpty() ? patient.getGender().substring(0, 1).toUpperCase() : "U";
+
+        return String.format(
+            "MSH|^~\\&|SEYMOUR_EHR|SEYMOUR_CLINIC|MIRTH_INTEGRATION|MIRTH_FACILITY|%s||VXU^V04^VXU_V04|MSG%d|P|2.4\n" +
+            "PID|1||%s^^^MRN||%s^%s||%s|%s|||%s^^%s^%s^%s^CA\n" +
+            "ORC|RE|||||||Dr. Arthur Pendelton\n" +
+            "RXA|0|1|%s|%s|%s^%s^CVX|0.5|mL^^ISO||00^Administered^NIP||||||%s",
+            now, System.currentTimeMillis() % 1000000, patient.getMrn(), escape(patient.getLastName()), escape(patient.getFirstName()),
+            dob, gender, escape(patient.getAddressLine() != null ? patient.getAddressLine() : ""),
+            escape(patient.getCity() != null ? patient.getCity() : ""), escape(patient.getProvince() != null ? patient.getProvince() : ""),
+            escape(patient.getPostalCode() != null ? patient.getPostalCode() : ""), dateStr, dateStr, vaccineCode, escape(vaccineName), escape(lotNumber)
+        );
+    }
+
+    public String generateOru(Patient patient, String testCode, String testName, String value, String unit, String flag, String dateStr) {
+        String now = LocalDateTime.now().format(DATETIME_FORMATTER);
+        String dob = patient.getDateOfBirth() != null ? patient.getDateOfBirth().format(DATE_FORMATTER) : "";
+        String gender = patient.getGender() != null && !patient.getGender().isEmpty() ? patient.getGender().substring(0, 1).toUpperCase() : "U";
+
+        return String.format(
+            "MSH|^~\\&|SEYMOUR_EHR|SEYMOUR_CLINIC|MIRTH_INTEGRATION|MIRTH_FACILITY|%s||ORU^R01^ORU_R01|MSG%d|P|2.4\n" +
+            "PID|1||%s^^^MRN||%s^%s||%s|%s|||%s^^%s^%s^%s^CA\n" +
+            "OBR|1||VN-%d|%s^%s^LN|||%s\n" +
+            "OBX|1|NM|%s^%s^LN||%s|%s||%s|||F|||%s",
+            now, System.currentTimeMillis() % 1000000, patient.getMrn(), escape(patient.getLastName()), escape(patient.getFirstName()),
+            dob, gender, escape(patient.getAddressLine() != null ? patient.getAddressLine() : ""),
+            escape(patient.getCity() != null ? patient.getCity() : ""), escape(patient.getProvince() != null ? patient.getProvince() : ""),
+            escape(patient.getPostalCode() != null ? patient.getPostalCode() : ""), System.currentTimeMillis() % 100000,
+            testCode, escape(testName), dateStr, testCode, escape(testName), value, unit, flag, dateStr
+        );
+    }
+
     private String escape(String str) {
         if (str == null) return "";
         return str.replace("|", "\\F\\").replace("^", "\\S\\").replace("&", "\\T\\");

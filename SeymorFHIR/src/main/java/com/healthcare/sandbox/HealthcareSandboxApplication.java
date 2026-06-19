@@ -12,7 +12,7 @@ public class HealthcareSandboxApplication {
         System.out.println("""
                 ╔══════════════════════════════════════════════════╗
                 ║   Healthcare Sandbox — Seymour Practice Server   ║
-                ║   FHIR R4 API on http://localhost:8080           ║
+                ║   FHIR R4 API on http://localhost:8090           ║
                 ╠══════════════════════════════════════════════════╣
                 ║  GET /api/fhir/Patient                           ║
                 ║  GET /api/fhir/Patient/{id}                      ║

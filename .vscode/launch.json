@@ -1,12 +1,13 @@
 {
     "version": "0.2.0",
     "configurations": [
+        
         {
             "type": "java",
             "name": "Launch SeymorFHIR (Spring Boot)",
             "request": "launch",
             "mainClass": "com.healthcare.sandbox.HealthcareSandboxApplication",
-            "projectName": "SeymorFHIR"
+            "projectName": "seymor-fhir"
         },
         {
             "type": "java",
@@ -22,6 +23,14 @@
             "url": "http://localhost:8082",
             "webRoot": "${workspaceFolder}/LangleyChildrensHospital/langley-frontend",
             "preLaunchTask": "Start Langley Frontend"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Stop All Services",
+            "runtimeExecutable": "echo",
+            "runtimeArgs": ["Services stopped successfully!"],
+            "preLaunchTask": "Stop All Services"
         }
     ],
     "compounds": [

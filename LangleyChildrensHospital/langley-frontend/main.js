@@ -17,7 +17,7 @@ const metricAdmitted = document.getElementById("metric-admitted");
 const metricDischarged = document.getElementById("metric-discharged");
 const metricLastSync = document.getElementById("metric-last-sync");
 const searchInput = document.getElementById("search-input");
-const filterButtons = document.querySelectorAll(".filter-btn");
+const filterButtons = document.querySelectorAll(".controls-panel .filter-btn");
 const refreshButton = document.getElementById("refresh-button");
 const rosterCount = document.getElementById("roster-count");
 const loadingState = document.getElementById("loading-state");
@@ -73,6 +73,10 @@ function setupEventListeners() {
 
   // Close modal when clicking X
   modalClose.addEventListener("click", closeModal);
+
+  // Tab switching inside detail modal
+  document.getElementById("modal-tab-vaccines-btn").addEventListener("click", () => switchModalTab("vaccines"));
+  document.getElementById("modal-tab-labs-btn").addEventListener("click", () => switchModalTab("labs"));
 
   // Close modal when clicking outside container
   detailModal.addEventListener("click", (e) => {
@@ -179,10 +183,10 @@ function renderRoster() {
   // Apply Search and Status Filters
   const filtered = patients.filter(p => {
     const matchesSearch = 
-      p.firstName.toLowerCase().includes(currentSearchQuery) ||
-      p.lastName.toLowerCase().includes(currentSearchQuery) ||
-      p.mrn.toLowerCase().includes(currentSearchQuery) ||
-      p.seymourPatientId.includes(currentSearchQuery);
+      (p.firstName || "").toLowerCase().includes(currentSearchQuery) ||
+      (p.lastName || "").toLowerCase().includes(currentSearchQuery) ||
+      (p.mrn || "").toLowerCase().includes(currentSearchQuery) ||
+      String(p.seymourPatientId || "").toLowerCase().includes(currentSearchQuery);
 
     const matchesStatus = 
       currentFilterStatus === "all" ||
@@ -262,7 +266,7 @@ function renderRoster() {
 }
 
 // Show modal with patient details
-function showPatientDetails(patient) {
+async function showPatientDetails(patient) {
   selectedPatient = patient;
   
   const initials = `${patient.firstName.charAt(0) || ""}${patient.lastName.charAt(0) || ""}`.toUpperCase();
@@ -290,7 +294,117 @@ function showPatientDetails(patient) {
   
   modalSyncedAt.textContent = `Synchronized at: ${new Date(patient.createdAt).toLocaleString()}`;
   
+  // Reset clinical history tabs
+  switchModalTab('vaccines');
+
+  // Load Vaccines and Labs
+  await Promise.all([
+    loadPatientVaccines(patient.id),
+    loadPatientLabs(patient.id)
+  ]);
+
   detailModal.classList.remove("hidden");
+}
+
+function switchModalTab(tab) {
+  const vacBtn = document.getElementById("modal-tab-vaccines-btn");
+  const labBtn = document.getElementById("modal-tab-labs-btn");
+  const vacPanel = document.getElementById("modal-vaccines-panel");
+  const labPanel = document.getElementById("modal-labs-panel");
+
+  if (tab === 'vaccines') {
+    vacBtn.classList.add("active");
+    vacBtn.style.color = "var(--accent-cyan)";
+    vacBtn.style.background = "rgba(6, 182, 212, 0.15)";
+    vacBtn.style.borderColor = "rgba(6, 182, 212, 0.3)";
+
+    labBtn.classList.remove("active");
+    labBtn.style.color = "var(--text-secondary)";
+    labBtn.style.background = "rgba(255, 255, 255, 0.05)";
+    labBtn.style.borderColor = "var(--card-border)";
+
+    vacPanel.style.display = "block";
+    labPanel.style.display = "none";
+  } else {
+    labBtn.classList.add("active");
+    labBtn.style.color = "var(--accent-cyan)";
+    labBtn.style.background = "rgba(6, 182, 212, 0.15)";
+    labBtn.style.borderColor = "rgba(6, 182, 212, 0.3)";
+
+    vacBtn.classList.remove("active");
+    vacBtn.style.color = "var(--text-secondary)";
+    vacBtn.style.background = "rgba(255, 255, 255, 0.05)";
+    vacBtn.style.borderColor = "var(--card-border)";
+
+    vacPanel.style.display = "none";
+    labPanel.style.display = "block";
+  }
+}
+
+async function loadPatientVaccines(patientId) {
+  const tbody = document.getElementById("modal-vaccines-tbody");
+  tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 1rem;">Loading...</td></tr>`;
+
+  try {
+    const res = await fetch(`http://localhost:8081/api/patients/${patientId}/vaccinations`);
+    if (!res.ok) throw new Error("Failed to load vaccinations");
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 1rem;">No vaccination records synced.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(v => {
+      const dateStr = v.administrationDate ? new Date(v.administrationDate).toLocaleString() : "N/A";
+      return `
+        <tr>
+          <td style="padding: 0.5rem; font-weight: 500; color: var(--text-primary);">${v.vaccineName || 'Unknown'}</td>
+          <td style="padding: 0.5rem;"><code>${v.vaccineCode || 'N/A'}</code></td>
+          <td style="padding: 0.5rem;">${dateStr}</td>
+          <td style="padding: 0.5rem;"><code>${v.lotNumber || 'N/A'}</code></td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--accent-red);">Error loading vaccines.</td></tr>`;
+  }
+}
+
+async function loadPatientLabs(patientId) {
+  const tbody = document.getElementById("modal-labs-tbody");
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1rem;">Loading...</td></tr>`;
+
+  try {
+    const res = await fetch(`http://localhost:8081/api/patients/${patientId}/labs`);
+    if (!res.ok) throw new Error("Failed to load lab results");
+    const data = await res.json();
+
+    if (data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1rem;">No lab records synced.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(l => {
+      const dateStr = l.testDate ? new Date(l.testDate).toLocaleString() : "N/A";
+      const isAbnormal = l.flag && l.flag !== 'N' && l.flag !== 'Normal';
+      const flagClass = isAbnormal ? 'badge discharged' : 'badge admitted'; // standard colors in styling
+      const flagText = l.flag === 'N' ? 'Normal' : (l.flag === 'A' ? 'Abnormal' : l.flag);
+      return `
+        <tr>
+          <td style="padding: 0.5rem; font-weight: 500; color: var(--text-primary);">${l.testName || 'Unknown'}</td>
+          <td style="padding: 0.5rem;"><code>${l.testCode || 'N/A'}</code></td>
+          <td style="padding: 0.5rem;"><strong>${l.resultValue || ''}</strong> ${l.unit || ''}</td>
+          <td style="padding: 0.5rem;"><span class="${flagClass}">${flagText}</span></td>
+          <td style="padding: 0.5rem;">${dateStr}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1rem; color: var(--accent-red);">Error loading labs.</td></tr>`;
+  }
 }
 
 function closeModal() {

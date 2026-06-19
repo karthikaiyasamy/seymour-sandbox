@@ -29,17 +29,10 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- SQLite JDBC -->
+        <!-- PostgreSQL Driver -->
         <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>3.45.3.0</version>
-        </dependency>
-
-        <!-- SQLite dialect for Hibernate -->
-        <dependency>
-            <groupId>org.hibernate.orm</groupId>
-            <artifactId>hibernate-community-dialects</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
         </dependency>
 
         <!-- Lombok -->

@@ -43,7 +43,7 @@ public class WebhookService {
                   "visitNumber": "%s",
                   "facility": "%s",
                   "timestamp": "%s",
-                  "callbackBaseUrl": "http://localhost:8080"
+                  "callbackBaseUrl": "http://localhost:8090"
                 }
                 """,
                 patient.getId(),

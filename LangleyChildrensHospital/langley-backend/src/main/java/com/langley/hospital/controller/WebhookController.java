@@ -3,10 +3,15 @@ package com.langley.hospital.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.langley.hospital.model.LangleyPatient;
+import com.langley.hospital.model.LangleyVaccination;
+import com.langley.hospital.model.LangleyLabResult;
 import com.langley.hospital.repository.LangleyPatientRepository;
+import com.langley.hospital.repository.LangleyVaccinationRepository;
+import com.langley.hospital.repository.LangleyLabResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -14,8 +19,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,7 +33,11 @@ import java.util.*;
 public class WebhookController {
 
     private final LangleyPatientRepository patientRepo;
+    private final LangleyVaccinationRepository vaccineRepo;
+    private final LangleyLabResultRepository labRepo;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     public record WebhookPayload(
             String patientId,
@@ -36,6 +49,199 @@ public class WebhookController {
             String timestamp,
             String callbackBaseUrl
     ) {}
+
+    public record MirthNotification(
+            String messageId,
+            String patientMrn,
+            String dataType,
+            String timestamp
+    ) {}
+
+    // POST /api/langley/pediatric/sync — Direct push synchronization from Mirth
+    @PostMapping("/api/langley/pediatric/sync")
+    public ResponseEntity<Map<String, String>> syncPediatricData(@RequestBody Map<String, Object> payload) {
+        log.info("Received direct sync payload from Mirth: {}", payload);
+        
+        try {
+            String mrn = (String) payload.get("patientMrn");
+            if (mrn == null || mrn.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Missing patientMrn"));
+            }
+
+            Optional<LangleyPatient> patientOpt = patientRepo.findByMrn(mrn);
+            if (patientOpt.isEmpty()) {
+                log.warn("Patient with MRN {} not found. Direct sync aborted.", mrn);
+                return ResponseEntity.status(404).body(Map.of("status", "error", "message", "Patient MRN not found"));
+            }
+            LangleyPatient patient = patientOpt.get();
+            String dataType = (String) payload.get("dataType");
+
+            if ("VACCINATION".equalsIgnoreCase(dataType)) {
+                String vaccineCode = (String) payload.get("vaccineCode");
+                String vaccineName = (String) payload.get("vaccineName");
+                String adminDateStr = (String) payload.get("administrationDate");
+                LocalDateTime adminDate = adminDateStr != null && !adminDateStr.isEmpty()
+                        ? LocalDateTime.parse(adminDateStr) : LocalDateTime.now();
+                String lotNumber = (String) payload.get("lotNumber");
+                String administeredBy = (String) payload.get("administeredBy");
+
+                LangleyVaccination vaccine = LangleyVaccination.builder()
+                        .patient(patient)
+                        .vaccineCode(vaccineCode)
+                        .vaccineName(vaccineName)
+                        .administrationDate(adminDate)
+                        .lotNumber(lotNumber)
+                        .administeredBy(administeredBy)
+                        .build();
+
+                vaccineRepo.save(vaccine);
+                log.info("Direct Sync: Saved vaccination record: {} for Patient MRN: {}", vaccineName, mrn);
+
+            } else if ("LAB_TEST".equalsIgnoreCase(dataType)) {
+                String testCode = (String) payload.get("testCode");
+                String testName = (String) payload.get("testName");
+                String testDateStr = (String) payload.get("testDate");
+                LocalDateTime testDate = testDateStr != null && !testDateStr.isEmpty()
+                        ? LocalDateTime.parse(testDateStr) : LocalDateTime.now();
+                String resultValue = (String) payload.get("resultValue");
+                String unit = (String) payload.get("unit");
+                String flag = (String) payload.get("flag");
+
+                LangleyLabResult lab = LangleyLabResult.builder()
+                        .patient(patient)
+                        .testCode(testCode)
+                        .testName(testName)
+                        .testDate(testDate)
+                        .resultValue(resultValue)
+                        .unit(unit)
+                        .flag(flag)
+                        .build();
+
+                labRepo.save(lab);
+                log.info("Direct Sync: Saved lab result: {} for Patient MRN: {}", testName, mrn);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Unknown dataType " + dataType));
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "status", "success",
+                    "message", "Pediatric record synchronized successfully"
+            ));
+
+        } catch (Exception e) {
+            log.error("Error processing direct sync payload: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("status", "error", "message", e.getMessage()));
+        }
+    }
+
+    // POST /api/langley/notify — Receive event notification from Mirth
+    @PostMapping("/api/langley/notify")
+    public ResponseEntity<Map<String, String>> handleMirthNotification(@RequestBody MirthNotification notification) {
+        log.info("Received Mirth notification: messageId={}, mrn={}, type={}", 
+                notification.messageId(), notification.patientMrn(), notification.dataType());
+
+        // Schedule the 10-second deferred retrieval task
+        scheduler.schedule(() -> {
+            fetchAndProcessMirthPayload(notification.messageId(), notification.dataType());
+        }, 10, TimeUnit.SECONDS);
+
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "success",
+                "message", "Notification received. Retrieval task scheduled in 10 seconds."
+        ));
+    }
+
+    private void fetchAndProcessMirthPayload(String messageId, String dataType) {
+        String payloadUrl = "http://localhost:8092/payload/" + messageId;
+        log.info("Fetching payload from Mirth at: {}", payloadUrl);
+
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(payloadUrl))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                log.error("Failed to fetch payload from Mirth. Status code: {}", response.statusCode());
+                return;
+            }
+
+            String jsonStr = response.body();
+            log.info("Received JSON payload from Mirth: {}", jsonStr);
+            JsonNode root = objectMapper.readTree(jsonStr);
+
+            String mrn = root.path("patientMrn").asText(null);
+            if (mrn == null || mrn.isEmpty()) {
+                log.error("Payload is missing patientMrn: {}", jsonStr);
+                return;
+            }
+
+            Optional<LangleyPatient> patientOpt = patientRepo.findByMrn(mrn);
+            if (patientOpt.isEmpty()) {
+                log.warn("Patient with MRN {} not found in Langley. Cannot associate data.", mrn);
+                return;
+            }
+            LangleyPatient patient = patientOpt.get();
+
+            if ("VACCINATION".equalsIgnoreCase(dataType)) {
+                String vaccineCode = root.path("vaccineCode").asText("");
+                String vaccineName = root.path("vaccineName").asText("");
+                String adminDateStr = root.path("administrationDate").asText(null);
+                LocalDateTime adminDate = adminDateStr != null && !adminDateStr.isEmpty()
+                        ? LocalDateTime.parse(adminDateStr) : LocalDateTime.now();
+                String lotNumber = root.path("lotNumber").asText("");
+                String administeredBy = root.path("administeredBy").asText("");
+
+                LangleyVaccination vaccine = LangleyVaccination.builder()
+                        .patient(patient)
+                        .vaccineCode(vaccineCode)
+                        .vaccineName(vaccineName)
+                        .administrationDate(adminDate)
+                        .lotNumber(lotNumber)
+                        .administeredBy(administeredBy)
+                        .build();
+
+                vaccineRepo.save(vaccine);
+                log.info("Successfully saved vaccination record: {} for Patient MRN: {}", vaccineName, mrn);
+
+            } else if ("LAB_TEST".equalsIgnoreCase(dataType)) {
+                String testCode = root.path("testCode").asText("");
+                String testName = root.path("testName").asText("");
+                String testDateStr = root.path("testDate").asText(null);
+                LocalDateTime testDate = testDateStr != null && !testDateStr.isEmpty()
+                        ? LocalDateTime.parse(testDateStr) : LocalDateTime.now();
+                String resultValue = root.path("resultValue").asText("");
+                String unit = root.path("unit").asText("");
+                String flag = root.path("flag").asText("");
+
+                LangleyLabResult lab = LangleyLabResult.builder()
+                        .patient(patient)
+                        .testCode(testCode)
+                        .testName(testName)
+                        .testDate(testDate)
+                        .resultValue(resultValue)
+                        .unit(unit)
+                        .flag(flag)
+                        .build();
+
+                labRepo.save(lab);
+                log.info("Successfully saved lab result record: {} for Patient MRN: {}", testName, mrn);
+            } else {
+                log.warn("Unknown data type received from Mirth: {}", dataType);
+            }
+
+        } catch (Exception e) {
+            log.error("Error fetching or processing payload from Mirth: {}", e.getMessage(), e);
+        }
+    }
 
     // POST /adt-webhook — Receive event notifications from Seymour
     @PostMapping("/adt-webhook")
@@ -192,5 +398,17 @@ public class WebhookController {
     @GetMapping("/api/patients")
     public List<LangleyPatient> getPatients() {
         return patientRepo.findAll();
+    }
+
+    // GET /api/patients/{id}/vaccinations — Get vaccinations for patient
+    @GetMapping("/api/patients/{id}/vaccinations")
+    public List<LangleyVaccination> getVaccinations(@PathVariable Long id) {
+        return vaccineRepo.findByPatientId(id);
+    }
+
+    // GET /api/patients/{id}/labs — Get lab results for patient
+    @GetMapping("/api/patients/{id}/labs")
+    public List<LangleyLabResult> getLabResults(@PathVariable Long id) {
+        return labRepo.findByPatientId(id);
     }
 }

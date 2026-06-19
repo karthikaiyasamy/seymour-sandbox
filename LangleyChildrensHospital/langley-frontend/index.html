@@ -101,7 +101,7 @@
       <div class="empty-state hidden" id="empty-state">
         <div class="empty-icon">📡</div>
         <h3>No Patients Synced Yet</h3>
-        <p>Ensure the Seymour FHIR Server is running on port 8080, Langley Backend is running on port 8081, and you trigger an ADT action (Register, Admit, or Discharge) in Seymour.</p>
+        <p>Ensure the Seymour FHIR Server is running on port 8090, Langley Backend is running on port 8081, and you trigger an ADT action (Register, Admit, or Discharge) in Seymour.</p>
         <div class="waiting-indicator">
           <span></span><span></span><span></span>
           Listening for webhook events...
@@ -184,6 +184,47 @@
           <div class="info-item allergy-box">
             <label>Known Allergies</label>
             <p id="modal-allergies">Penicillin, Sulfa drugs</p>
+          </div>
+        </div>
+
+        <div class="info-section" id="pediatric-records-section">
+          <h3>Immunization & Lab Records</h3>
+          <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+            <button id="modal-tab-vaccines-btn" class="filter-btn active" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 9999px; color: var(--accent-cyan); cursor: pointer;">Vaccinations</button>
+            <button id="modal-tab-labs-btn" class="filter-btn" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-border); border-radius: 9999px; color: var(--text-secondary); cursor: pointer;">Lab Results</button>
+          </div>
+          
+          <div id="modal-vaccines-panel" class="table-container" style="max-height: 180px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="padding: 0.5rem;">Vaccine Name</th>
+                  <th style="padding: 0.5rem;">Code</th>
+                  <th style="padding: 0.5rem;">Date Administered</th>
+                  <th style="padding: 0.5rem;">Lot #</th>
+                </tr>
+              </thead>
+              <tbody id="modal-vaccines-tbody">
+                <tr><td colspan="4" style="text-align: center; padding: 1rem;">No vaccination records synced.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="modal-labs-panel" class="table-container" style="display: none; max-height: 180px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="padding: 0.5rem;">Test Name</th>
+                  <th style="padding: 0.5rem;">Code</th>
+                  <th style="padding: 0.5rem;">Result Value</th>
+                  <th style="padding: 0.5rem;">Flag</th>
+                  <th style="padding: 0.5rem;">Date of Test</th>
+                </tr>
+              </thead>
+              <tbody id="modal-labs-tbody">
+                <tr><td colspan="5" style="text-align: center; padding: 1rem;">No lab records synced.</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
