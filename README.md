@@ -4,11 +4,11 @@ A local FHIR R4-shaped REST API sandbox built with **Spring Boot & PostgreSQL**,
 
 ---
 
-## 🚀 What This Demonstrates
+## What This Demonstrates
 
 This workspace showcases a fully functional regional health interoperability sandbox, built as hands-on preparation for BC health interoperability and integration roles.
 
-### 🔌 Key Integration Capabilities
+### Key Integration Capabilities
 * **HL7 v2 → FHIR R4 Translation via Mirth Connect:** Automated transformation and routing of **ADT** (Admit, Discharge, Transfer), **ORU** (Observation Result / Lab Results), and **VXU** (Unsolicited Vaccination Record) messages.
 * **End-to-End MLLP/TCP Pipeline:** 
   1. *Seymour Clinic* publishes HL7 v2 pipe-delimited streams over TCP/MLLP.
