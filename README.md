@@ -1,7 +1,25 @@
-# Healthcare Sandbox — Seymour Practice Server
+# Healthcare Sandbox — Regional Interoperability & FHIR Workspace
 
-A local FHIR R4-shaped REST API using Spring Boot + PostgreSQL.  
-Synthetic BC patient data. Runs entirely offline. This is just an experimental project to brush up my HL7 skills and does not contain any real patient data. Please do not use this in production.
+A local FHIR R4-shaped REST API sandbox built with **Spring Boot & PostgreSQL**, designed to simulate real-world British Columbia (BC) clinical workflows and healthcare integration architectures. All patient data is synthetic.
+
+---
+
+## 🚀 What This Demonstrates
+
+This workspace showcases a fully functional regional health interoperability sandbox, built as hands-on preparation for BC health interoperability and integration roles.
+
+### 🔌 Key Integration Capabilities
+* **HL7 v2 → FHIR R4 Translation via Mirth Connect:** Automated transformation and routing of **ADT** (Admit, Discharge, Transfer), **ORU** (Observation Result / Lab Results), and **VXU** (Unsolicited Vaccination Record) messages.
+* **End-to-End MLLP/TCP Pipeline:** 
+  1. *Seymour Clinic* publishes HL7 v2 pipe-delimited streams over TCP/MLLP.
+  2. *Mirth Connect* listens, transforms the segments, and maps them to JSON payloads.
+  3. *Langley Children's Hospital* backend consumes the payloads and updates the clinic dashboards with sub-second to 2-second latency.
+* **SMART on FHIR OAuth2 Simulation:** Secure app-launch authentication simulating authorization code grant flows, returning access tokens accompanied by launching patient context (`patient: "1"`).
+* **Canadian Baseline FHIR Compliance:** Native support for Canadian Baseline profiles using BC Personal Health Numbers (PHN) as identifiers and BC-specific terminology/system URIs.
+* **OperationOutcome Error Handling:** Implements robust error responses structured exactly as standard FHIR `OperationOutcome` resources.
+* **Clinically Meaningful Synthetic Patients:** Pre-seeded with complex clinical scenarios (STEMI post-PCI, Type 2 diabetes with hyperglycemia, pediatric asthma exacerbation, and prenatal care).
+
+---
 
 ## Prerequisites
 - Java 21+
@@ -83,22 +101,25 @@ Databases:
 
 ```bash
 # Get all patients
-curl http://localhost:8080/api/fhir/Patient | jq .
+curl http://localhost:8090/api/fhir/Patient | jq .
 
 # Get ADT history for patient 1 (Margaret Chen)
-curl http://localhost:8080/api/fhir/Encounter/adt/patient/1 | jq .
+curl http://localhost:8090/api/fhir/Encounter/adt/patient/1 | jq .
 
 # Get raw HL7 v2 message representation of ADT event 1
-curl http://localhost:8080/api/fhir/Encounter/adt/1/hl7
+curl http://localhost:8090/api/fhir/Encounter/adt/1/hl7
 
 # Ingest raw HL7 v2 message to register and admit a patient
 # Note: If the MRN does not exist, the system automatically registers the patient first
-curl -X POST http://localhost:8080/api/fhir/Encounter/adt/hl7 \
+curl -X POST http://localhost:8090/api/fhir/Encounter/adt/hl7 \
   -H "Content-Type: text/plain" \
   -d $'MSH|^~\\&|SANDBOX_EHR|Surrey Memorial Hospital|REC_APP|REC_FAC|20241201093000||ADT^A01^ADT_A01|MSG99001|P|2.4\nPID|1||MRN-90001^^^MRN||Smith^John||19850515|M|||123 Broadway^^Vancouver^BC^V6T 1Z4^CA||604-555-9000||||||BC9009998888\nPV1|1|I|3 West^301^A^Surrey Memorial Hospital||||Dr. Arthur Pendelton|||||||||||VN-2024-99001|||||||||||||||||||||||||20241201093000\nDG1|1|I10|I21.09^ST elevation myocardial infarction^ICD-10|||A'
 
+# Execute a SMART on FHIR OAuth2 Authorize request (returns 302 Redirect with Auth Code)
+curl -i "http://localhost:8090/oauth2/authorize?response_type=code&client_id=my_clinical_app&redirect_uri=http://localhost:3000/callback"
+
 # Execute a SMART on FHIR OAuth2 Token request
-curl -X POST http://localhost:8080/oauth2/token \
+curl -X POST http://localhost:8090/oauth2/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code&code=simulated_auth_code_123&redirect_uri=http://localhost:3000/callback&client_id=my_clinical_app"
 ```
