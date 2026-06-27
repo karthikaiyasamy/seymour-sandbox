@@ -423,10 +423,22 @@ function startPolling() {
 // Helper: Calculate age from date string
 function calculateAge(dobString) {
   if (!dobString) return null;
-  const birthDate = new Date(dobString);
-  const difference = Date.now() - birthDate.getTime();
-  const ageDate = new Date(difference);
-  return Math.abs(ageDate.getUTCFullYear() - 1970);
+  // Robust parsing of YYYY-MM-DD format (cross-browser compatible)
+  const parts = dobString.split('-');
+  if (parts.length !== 3) return null;
+  
+  const birthYear = parseInt(parts[0], 10);
+  const birthMonth = parseInt(parts[1], 10) - 1; // months are 0-indexed
+  const birthDay = parseInt(parts[2], 10);
+  
+  const today = new Date();
+  let age = today.getFullYear() - birthYear;
+  const monthDiff = today.getMonth() - birthMonth;
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDay)) {
+    age--;
+  }
+  return isNaN(age) ? null : age;
 }
 
 // Helper: Capitalize word
