@@ -1,6 +1,8 @@
 # Healthcare Sandbox — Regional Interoperability & FHIR Workspace
 
-A local FHIR R4-shaped REST API sandbox built with **Spring Boot & PostgreSQL**, designed to simulate real-world British Columbia (BC) clinical workflows and healthcare integration architectures. All patient data is synthetic.
+A local FHIR R4-shaped REST API sandbox built with **Spring Boot & PostgreSQL**, designed to simulate real-world British Columbia (BC) clinical workflows and healthcare integration architectures. 
+
+**IMPORTANT: All patient data is synthetic and should not be used in any real-world clinical settings.**
 
 ---
 
@@ -168,7 +170,10 @@ Resources are shaped like FHIR R4 and follow Canadian clinical baselines:
 
 ## Mirth Connect Integration (Open Source)
 
-The local HL7 v2 workflow is mediated by **Mirth Connect** (open source integration engine) to simulate real-world interface connectivity:
+The local HL7 v2 workflow is mediated by **Mirth Connect** (open source integration engine) to simulate real-world interface connectivity. 
+
+> [!NOTE]
+> While Mirth Connect is used for this workspace, the architecture is compatible with related or similar integration engines and middleware. Additionally, the Seymour EHR source simulates clinical workflows and message structures modeled directly after major enterprise EHR platforms such as Cerner.
 
 1. **Seymour** triggers pediatric immunization (`VXU`) or lab result (`ORU`) events via the ADT Console.
 2. **Seymour** serializes these records to HL7 v2 and transmits the pipe-delimited raw stream over TCP.
