@@ -7,3 +7,17 @@ Accept: application/json
 
 
 GET {{LangleyGeneralGateway_HostAddress}}/api/langleygeneral/patients
+
+###
+
+POST {{LangleyGeneralGateway_HostAddress}}/api/langleygeneral/sync
+Content-Type: application/json
+
+{
+    "phn": "9234567897",
+    "mrn": "LGH-123456",
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-01-01",
+    "gender": "Male"
+}
