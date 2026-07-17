@@ -1,26 +1,26 @@
 # Langley General Gateway (LangleyGeneralGateway)
 
-A fictional gateway service representing **Langley General Hospital**. This is a modern **C# / .NET 10 Web API** microservice designed to receive, process, and persist patient demographic sync messages forwarded by a Mirth Connect integration pipeline.
+A gateway service representing the demographics registry for **Langley General Hospital**. This is a modern **C# / .NET 10 Web API** microservice designed to receive, process, and persist patient demographic sync messages forwarded by an integration engine pipeline.
 
-This module provides hands-on demonstration of .NET enterprise backend engineering within a BC clinical integration context (aligned with PHSA and BC Public Service standards).
+This module handles automated patient registration, demographics updates, and database persistence in accordance with modern healthcare integration standards.
 
 ---
 
-## 1. Core Technical Architecture & Design Decisions
+## 1. Technical Architecture & Design Decisions
 
-When discussing this application in a technical interview (such as at PHSA), these are the key architectural decisions and patterns to highlight:
+The application employs several key architectural patterns to ensure reliability, data integrity, and compliance with healthcare data processing standards:
 
-### 1.1 Semantic Date Representation (`DateOnly`)
-* **The Choice:** Demographics models use the modern C# **`DateOnly`** type for `DateOfBirth` instead of the traditional `DateTime`.
-* **The Rationale:** A date of birth is a calendar date only—it has no time or timezone context. In standard enterprise integrations, storing dates of birth as `DateTime` (or `timestamp with time zone` in PostgreSQL) frequently leads to **timezone shift bugs**. For example, a birthdate of `1988-12-15` transmitted from a different timezone can easily shift to `1988-12-14 23:00` or `1988-12-16 01:00`. `DateOnly` maps directly to the PostgreSQL `date` column type, fully eliminating this class of bugs.
+### 1.1 Timezone-Safe Date Processing (`DateOnly`)
+* **Design Decision:** The domain entity uses the C# **`DateOnly`** type for `DateOfBirth` rather than the traditional `DateTime` object.
+* **Technical Rationale:** A date of birth is a calendar date only—it does not carry time or timezone metadata. In distributed healthcare environments, transmitting dates of birth as `DateTime` (or storing them as `timestamp with time zone` in PostgreSQL) frequently leads to timezone shift errors. For example, a birthday transmitted as `1988-12-15T00:00:00` from an Eastern Time client can shift to `1988-12-14` or `1988-12-16` when parsed by a server configured to Pacific Time (or UTC). By using `DateOnly`, the API maps directly to the PostgreSQL `date` column type, eliminating timezone conversion errors.
 
-### 1.2 Robust Defensive DTO Validation
-* **The Challenge:** Default ASP.NET Core model validation can throw generic `400 Bad Request` exceptions directly from the System.Text.Json deserialization layer before the controller code is ever hit (resulting in unhelpful error details like `The JSON value could not be converted...`).
-* **The Solution:** The `SyncPatientRequest` DTO models all properties as nullable strings (`string?`). This allows Mirth Connect to submit empty, null, or malformed values without breaking the pipeline. We then execute explicit, custom validation and parsing logic (e.g. `DateOnly.TryParse()`) in the Controller, returning clean, readable error responses.
+### 1.2 Defensive DTO Validation & Input Normalization
+* **Design Decision:** The `SyncPatientRequest` DTO models incoming demographic parameters as nullable strings (`string?`) and performs validation and type conversion explicitly in the controller layer.
+* **Technical Rationale:** Standard ASP.NET Core model validation can reject payloads at the framework level (System.Text.Json deserialization) when type mismatches occur (such as Mirth sending empty strings `""` for date fields). By allowing loose binding at the DTO level and performing explicit parsing (`DateOnly.TryParse()`), the API prevents raw parsing exceptions, processes optional fields gracefully, and returns clean, structured error responses (`400 Bad Request`) to the client.
 
 ### 1.3 Entity Framework Core (EF Core 10) & PostgreSQL Integration
-* **Unique Constraints:** The `LangleyGeneralDbContext` maps the entities to a PostgreSQL schema. In the `OnModelCreating` configuration, a unique index constraint is defined on the patient **`Mrn`** (Medical Record Number) to guarantee data integrity across regional syncs.
-* **Upsert (Sync) Pattern:** The sync controller uses an upsert design. If the MRN is already registered in the hospital registry, the service updates the demographic details; if the MRN is new, it automatically registers a new record.
+* **Data Integrity:** The `LangleyGeneralDbContext` configures a unique index constraint on the patient **`Mrn`** (Medical Record Number) to guarantee demographic consistency and prevent duplicate registrations.
+* **Upsert (Sync) Pattern:** The sync controller uses an upsert design. If the MRN is already registered, the service updates the demographics; if the MRN is new, it automatically registers a new record.
 
 ---
 
@@ -34,7 +34,7 @@ When discussing this application in a technical interview (such as at PHSA), the
 
 ---
 
-## 3. API Specs
+## 3. API Specifications
 
 ### Sync Webhook Endpoint
 * **Endpoint:** `POST /api/langleygeneral/sync`
