@@ -2,7 +2,9 @@ package com.healthcare.sandbox.controller;
 
 import com.healthcare.sandbox.model.Patient;
 import com.healthcare.sandbox.repository.PatientRepository;
+import com.healthcare.sandbox.util.PhnValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,7 @@ import java.util.*;
 @RequestMapping("/api/fhir/Patient")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class PatientController {
 
     private final PatientRepository patientRepo;
@@ -218,6 +221,23 @@ public class PatientController {
             return ResponseEntity.badRequest().body(buildOperationOutcome(
                     "error", "duplicate", "Patient with MRN " + patient.getMrn() + " already exists"));
         }
+
+        // Validate BC PHN if provided
+        String phn = patient.getHealthCardNumber();
+        if (phn != null && !phn.trim().isEmpty()) {
+            String normalizedPhn = phn.replaceAll("[^0-9]", "");
+            if (!PhnValidator.isValidBCOnlyPHN(normalizedPhn)) {
+                log.warn("Patient registration rejected: Invalid PHN checksum '{}'", PhnValidator.maskPHN(normalizedPhn));
+                return ResponseEntity.badRequest().body(buildOperationOutcome(
+                        "error", "invalid", "Invalid British Columbia PHN format or checksum."));
+            }
+            patient.setHealthCardNumber(normalizedPhn);
+        }
+
+        log.info("Registering new patient with MRN: {} and PHN: {}", 
+                patient.getMrn(), 
+                PhnValidator.maskPHN(patient.getHealthCardNumber()));
+
         Patient saved = patientRepo.save(patient);
         return ResponseEntity.status(201).body(toFhir(saved));
     }
@@ -225,9 +245,27 @@ public class PatientController {
     // PUT /api/fhir/Patient/{id} — update patient
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updatePatient(@PathVariable Long id, @RequestBody Patient updated) {
+        // Validate BC PHN if provided
+        String phn = updated.getHealthCardNumber();
+        if (phn != null && !phn.trim().isEmpty()) {
+            String normalizedPhn = phn.replaceAll("[^0-9]", "");
+            if (!PhnValidator.isValidBCOnlyPHN(normalizedPhn)) {
+                log.warn("Patient update rejected: Invalid PHN checksum '{}'", PhnValidator.maskPHN(normalizedPhn));
+                return ResponseEntity.badRequest().body(buildOperationOutcome(
+                        "error", "invalid", "Invalid British Columbia PHN format or checksum."));
+            }
+            updated.setHealthCardNumber(normalizedPhn);
+        }
+
         return patientRepo.findById(id).map(existing -> {
             updated.setId(id);
             updated.setCreatedAt(existing.getCreatedAt());
+
+            log.info("Updating patient ID: {}, MRN: {}, PHN: {}", 
+                    id, 
+                    updated.getMrn(), 
+                    PhnValidator.maskPHN(updated.getHealthCardNumber()));
+
             Patient saved = patientRepo.save(updated);
             return ResponseEntity.ok(toFhir(saved));
         }).orElse(ResponseEntity.status(404).body(buildOperationOutcome(

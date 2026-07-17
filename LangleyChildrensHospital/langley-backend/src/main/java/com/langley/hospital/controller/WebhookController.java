@@ -8,6 +8,7 @@ import com.langley.hospital.model.LangleyLabResult;
 import com.langley.hospital.repository.LangleyPatientRepository;
 import com.langley.hospital.repository.LangleyVaccinationRepository;
 import com.langley.hospital.repository.LangleyLabResultRepository;
+import com.langley.hospital.util.PhnValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -357,6 +358,14 @@ public class WebhookController {
             Optional<LangleyPatient> existing = patientRepo.findBySeymourPatientId(seymourId);
             LangleyPatient patient = existing.orElseGet(() -> new LangleyPatient());
 
+            // Normalize and Validate PHN if present
+            if (healthCard != null && !healthCard.trim().isEmpty()) {
+                healthCard = healthCard.replaceAll("[^0-9]", "");
+                if (!PhnValidator.isValidBCOnlyPHN(healthCard)) {
+                    log.warn("Webhook patient sync contains invalid PHN checksum: '{}'", PhnValidator.maskPHN(healthCard));
+                }
+            }
+
             patient.setSeymourPatientId(seymourId);
             patient.setMrn(mrn);
             patient.setFirstName(firstName);
@@ -377,8 +386,8 @@ public class WebhookController {
             }
 
             patientRepo.save(patient);
-            log.info("Successfully synced patient: {} {} (MRN: {}) - Admitted: {}", 
-                    firstName, lastName, mrn, patient.getAdmitted());
+            log.info("Successfully synced patient: {} {} (MRN: {}) with PHN: {} - Admitted: {}", 
+                    firstName, lastName, mrn, PhnValidator.maskPHN(patient.getHealthCardNumber()), patient.getAdmitted());
 
             return ResponseEntity.ok(Map.of(
                     "status", "success", 
