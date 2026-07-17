@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LangleyGeneralGateway.Data;
 using LangleyGeneralGateway.Models;
+using LangleyGeneralGateway.Utils;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace LangleyGeneralGateway.Controllers
@@ -13,10 +16,12 @@ namespace LangleyGeneralGateway.Controllers
     public class SyncController : ControllerBase
     {
         private readonly LangleyGeneralDbContext _context;
+        private readonly ILogger<SyncController> _logger;
 
-        public SyncController(LangleyGeneralDbContext context)
+        public SyncController(LangleyGeneralDbContext context, ILogger<SyncController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // POST api/langleygeneral/sync
@@ -26,6 +31,18 @@ namespace LangleyGeneralGateway.Controllers
             if (request == null || string.IsNullOrWhiteSpace(request.Mrn) || string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
             {
                 return BadRequest(new { status = "error", message = "Missing mandatory fields (mrn, firstName, lastName)" });
+            }
+
+            // Normalize and Validate PHN if provided
+            string? normalizedPhn = null;
+            if (!string.IsNullOrWhiteSpace(request.Phn))
+            {
+                normalizedPhn = Regex.Replace(request.Phn, @"[^0-9]", "");
+                if (!PhnValidator.IsValidBCOnlyPHN(normalizedPhn))
+                {
+                    _logger.LogWarning("Demographics sync rejected: Invalid PHN format/checksum '{Phn}'", PhnValidator.MaskPHN(normalizedPhn));
+                    return BadRequest(new { status = "error", message = "Invalid British Columbia PHN format or checksum." });
+                }
             }
 
             // Parse DateOfBirth safely
@@ -42,6 +59,10 @@ namespace LangleyGeneralGateway.Controllers
                 }
             }
 
+            _logger.LogInformation("Processing demographics sync for MRN: {Mrn}, PHN: {Phn}", 
+                request.Mrn, 
+                PhnValidator.MaskPHN(normalizedPhn));
+
             try
             {
                 var existingPatient = await _context.Patients
@@ -52,7 +73,7 @@ namespace LangleyGeneralGateway.Controllers
                     // Update demographics
                     existingPatient.FirstName = request.FirstName;
                     existingPatient.LastName = request.LastName;
-                    existingPatient.Phn = request.Phn;
+                    existingPatient.Phn = normalizedPhn;
                     existingPatient.Gender = request.Gender;
                     existingPatient.DateOfBirth = parsedDob;
                     existingPatient.SyncedAt = DateTime.UtcNow;
@@ -68,7 +89,7 @@ namespace LangleyGeneralGateway.Controllers
                     var newPatient = new GeneralPatient
                     {
                         Mrn = request.Mrn,
-                        Phn = request.Phn,
+                        Phn = normalizedPhn,
                         FirstName = request.FirstName,
                         LastName = request.LastName,
                         DateOfBirth = parsedDob,
