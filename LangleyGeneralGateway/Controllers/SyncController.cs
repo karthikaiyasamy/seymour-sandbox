@@ -28,6 +28,20 @@ namespace LangleyGeneralGateway.Controllers
                 return BadRequest(new { status = "error", message = "Missing mandatory fields (mrn, firstName, lastName)" });
             }
 
+            // Parse DateOfBirth safely
+            DateOnly? parsedDob = null;
+            if (!string.IsNullOrWhiteSpace(request.DateOfBirth))
+            {
+                if (DateOnly.TryParse(request.DateOfBirth, out var dob))
+                {
+                    parsedDob = dob;
+                }
+                else
+                {
+                    return BadRequest(new { status = "error", message = $"Invalid dateOfBirth format: '{request.DateOfBirth}'. Expected YYYY-MM-DD." });
+                }
+            }
+
             try
             {
                 var existingPatient = await _context.Patients
@@ -40,7 +54,7 @@ namespace LangleyGeneralGateway.Controllers
                     existingPatient.LastName = request.LastName;
                     existingPatient.Phn = request.Phn;
                     existingPatient.Gender = request.Gender;
-                    existingPatient.DateOfBirth = request.DateOfBirth;
+                    existingPatient.DateOfBirth = parsedDob;
                     existingPatient.SyncedAt = DateTime.UtcNow;
 
                     _context.Patients.Update(existingPatient);
@@ -57,7 +71,7 @@ namespace LangleyGeneralGateway.Controllers
                         Phn = request.Phn,
                         FirstName = request.FirstName,
                         LastName = request.LastName,
-                        DateOfBirth = request.DateOfBirth,
+                        DateOfBirth = parsedDob,
                         Gender = request.Gender,
                         SyncedAt = DateTime.UtcNow
                     };
@@ -85,11 +99,11 @@ namespace LangleyGeneralGateway.Controllers
 
     public class SyncPatientRequest
     {
-        public string Mrn { get; set; } = string.Empty;
+        public string? Mrn { get; set; }
         public string? Phn { get; set; }
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
-        public DateOnly? DateOfBirth { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? DateOfBirth { get; set; }
         public string? Gender { get; set; }
     }
 }
