@@ -99,7 +99,10 @@ npm run dev
 
 ## Mirth Connect Integration Architecture
 
-The regional integration architecture is mediated by **Mirth Connect** (open source integration engine) to simulate real-world interface connectivity. 
+The regional integration architecture is mediated by **Mirth Connect** to simulate real-world interface connectivity. 
+
+> [!NOTE]
+> This project utilizes the **open-source version of Mirth Connect**. However, the integration design, mapping patterns, and target Webhook/API endpoints are technology-agnostic. The exact same architecture can be replicated in any enterprise healthcare integration engine, such as **InterSystems Ensemble/HealthShare**, **Orion Rhapsody**, or **Infor Cloverleaf**. 
 
 ```
                        ┌─────────────────────────┐
