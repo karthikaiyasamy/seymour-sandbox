@@ -5,7 +5,7 @@ A local FHIR R4-shaped REST API sandbox built with **Java (Spring Boot)** and **
 **IMPORTANT: All patient data is synthetic and should not be used in any real-world clinical settings.**
 
 > 📘 **Looking for deep integration engineering documentation?**  
-> Read the complete guide: **[FHIR & Healthcare Integration Engineering Masterclass](file:///Users/karthik/dev/cerner/seymour-sandbox/FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)** covering HL7 v2 vs FHIR R4, Canadian Baseline, BC PHN checksum algorithms, SMART-on-FHIR, and dual-stack Java/C# patterns.
+> Read the complete guide: **[FHIR & Healthcare Integration Engineering Masterclass](https://github.com/karthikaiyasamy/seymour-sandbox/blob/main/FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)** covering HL7 v2 vs FHIR R4, Canadian Baseline, BC PHN checksum algorithms, SMART-on-FHIR, and dual-stack Java/C# patterns.
 
 ---
 
