@@ -11,6 +11,8 @@ namespace LangleyGeneralGateway.Data
         }
 
         public DbSet<GeneralPatient> Patients { get; set; }
+        public DbSet<GeneralObservation> Observations { get; set; }
+        public DbSet<GeneralAllergy> Allergies { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

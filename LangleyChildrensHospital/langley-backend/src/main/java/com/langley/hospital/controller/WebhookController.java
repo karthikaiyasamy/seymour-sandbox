@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.langley.hospital.model.LangleyPatient;
 import com.langley.hospital.model.LangleyVaccination;
 import com.langley.hospital.model.LangleyLabResult;
+import com.langley.hospital.model.LangleyAllergy;
 import com.langley.hospital.repository.LangleyPatientRepository;
 import com.langley.hospital.repository.LangleyVaccinationRepository;
 import com.langley.hospital.repository.LangleyLabResultRepository;
+import com.langley.hospital.repository.LangleyAllergyRepository;
 import com.langley.hospital.util.PhnValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class WebhookController {
     private final LangleyPatientRepository patientRepo;
     private final LangleyVaccinationRepository vaccineRepo;
     private final LangleyLabResultRepository labRepo;
+    private final LangleyAllergyRepository allergyRepo;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -419,5 +422,49 @@ public class WebhookController {
     @GetMapping("/api/patients/{id}/labs")
     public List<LangleyLabResult> getLabResults(@PathVariable Long id) {
         return labRepo.findByPatientId(id);
+    }
+
+    // GET /api/patients/{id}/allergies — Get allergies for patient
+    @GetMapping("/api/patients/{id}/allergies")
+    public List<LangleyAllergy> getAllergies(@PathVariable Long id) {
+        return allergyRepo.findByPatientId(id);
+    }
+
+    // POST /api/langley/pediatric/allergy-sync — Sync pediatric allergy record
+    @PostMapping("/api/langley/pediatric/allergy-sync")
+    public ResponseEntity<Map<String, String>> syncAllergyData(@RequestBody Map<String, Object> payload) {
+        log.info("Received pediatric allergy sync payload: {}", payload);
+        try {
+            String mrn = (String) payload.get("patientMrn");
+            if (mrn == null || mrn.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Missing patientMrn"));
+            }
+
+            Optional<LangleyPatient> patientOpt = patientRepo.findByMrn(mrn);
+            if (patientOpt.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("status", "error", "message", "Patient MRN not found"));
+            }
+
+            LangleyAllergy allergy = LangleyAllergy.builder()
+                    .patient(patientOpt.get())
+                    .allergyCode((String) payload.getOrDefault("allergyCode", "UNKNOWN"))
+                    .allergyDisplay((String) payload.getOrDefault("allergyDisplay", "Unspecified Allergy"))
+                    .category((String) payload.getOrDefault("category", "medication"))
+                    .criticality((String) payload.getOrDefault("criticality", "low"))
+                    .reaction((String) payload.getOrDefault("reaction", "Rash"))
+                    .syncedAt(LocalDateTime.now())
+                    .build();
+
+            allergyRepo.save(allergy);
+            log.info("Saved synced allergy record: {} for Patient MRN: {}", allergy.getAllergyDisplay(), mrn);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "status", "success",
+                    "message", "Pediatric allergy record synchronized successfully"
+            ));
+        } catch (Exception e) {
+            log.error("Error processing allergy sync payload: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("status", "error", "message", e.getMessage()));
+        }
     }
 }

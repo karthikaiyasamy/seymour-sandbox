@@ -19,6 +19,8 @@ public class DataSeeder implements CommandLineRunner {
     private final AdtEventRepository adtRepo;
     private final MedicationRepository medRepo;
     private final EncounterRepository encRepo;
+    private final AllergyIntoleranceRepository allergyRepo;
+    private final ObservationRepository observationRepo;
 
     @Override
     public void run(String... args) {
@@ -351,7 +353,68 @@ public class DataSeeder implements CommandLineRunner {
                 .vitalsBp("118/74").vitalsHr(80).vitalsTemp(36.7).vitalsSpo2(99).vitalsWeightKg(71.2)
                 .status("FINAL").build());
 
-        log.info("✅ Seeded {} patients, {} ADT events, {} medications, {} encounters",
-                patientRepo.count(), adtRepo.count(), medRepo.count(), encRepo.count());
+        // ── Seed AllergyIntolerance Records ──
+        allergyRepo.save(AllergyIntolerance.builder()
+                .patient(p1).display("Allergy to Penicillin").code("297422002")
+                .category("medication").criticality("high").clinicalStatus("active").verificationStatus("confirmed")
+                .reactionManifestation("Severe Urticaria & Anaphylaxis").reactionSeverity("severe").build());
+
+        allergyRepo.save(AllergyIntolerance.builder()
+                .patient(p1).display("Allergy to Sulfa Drugs").code("91936005")
+                .category("medication").criticality("low").clinicalStatus("active").verificationStatus("confirmed")
+                .reactionManifestation("Mild Maculopapular Rash").reactionSeverity("mild").build());
+
+        allergyRepo.save(AllergyIntolerance.builder()
+                .patient(p3).display("Allergy to Egg Protein").code("91930004")
+                .category("food").criticality("high").clinicalStatus("active").verificationStatus("confirmed")
+                .reactionManifestation("Wheezing & Facial Angioedema").reactionSeverity("severe").build());
+
+        allergyRepo.save(AllergyIntolerance.builder()
+                .patient(p4).display("Allergy to Latex").code("300916003")
+                .category("environment").criticality("low").clinicalStatus("active").verificationStatus("confirmed")
+                .reactionManifestation("Contact Dermatitis").reactionSeverity("moderate").build());
+
+        // ── Seed Observation Records (Labs & Vitals) ──
+        // Margaret Chen (p1) — HbA1c & Glucose
+        observationRepo.save(Observation.builder()
+                .patient(p1).status("final").category("laboratory")
+                .code("4548-4").codeSystem("http://loinc.org").codeDisplay("Hemoglobin A1c/Hemoglobin.total in Blood")
+                .valueQuantity(9.4).valueUnit("%").interpretation("H")
+                .effectiveDateTime(LocalDateTime.now().minusDays(10)).issued(LocalDateTime.now().minusDays(10)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p1).status("final").category("laboratory")
+                .code("2339-0").codeSystem("http://loinc.org").codeDisplay("Glucose [Mass/volume] in Blood")
+                .valueQuantity(18.2).valueUnit("mmol/L").interpretation("HH")
+                .effectiveDateTime(LocalDateTime.now().minusDays(3)).issued(LocalDateTime.now().minusDays(3)).build());
+
+        // Robert Okafor (p2) — Troponin I & Heart Rate
+        observationRepo.save(Observation.builder()
+                .patient(p2).status("final").category("laboratory")
+                .code("10839-9").codeSystem("http://loinc.org").codeDisplay("Troponin I.cardiac [Mass/volume] in Serum or Plasma")
+                .valueQuantity(12.4).valueUnit("ng/mL").interpretation("HH")
+                .effectiveDateTime(LocalDateTime.now().minusDays(5)).issued(LocalDateTime.now().minusDays(5)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p2).status("final").category("vital-signs")
+                .code("8867-4").codeSystem("http://loinc.org").codeDisplay("Heart Rate")
+                .valueQuantity(92.0).valueUnit("beats/min").interpretation("N")
+                .effectiveDateTime(LocalDateTime.now().minusDays(1)).issued(LocalDateTime.now().minusDays(1)).build());
+
+        // Aisha Patel (p3) — Peak Flow Rate & Oxygen Saturation
+        observationRepo.save(Observation.builder()
+                .patient(p3).status("final").category("vital-signs")
+                .code("33452-4").codeSystem("http://loinc.org").codeDisplay("Peak expiratory flow rate")
+                .valueQuantity(180.0).valueUnit("L/min").interpretation("L")
+                .effectiveDateTime(LocalDateTime.now().minusDays(2)).issued(LocalDateTime.now().minusDays(2)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p3).status("final").category("vital-signs")
+                .code("2708-6").codeSystem("http://loinc.org").codeDisplay("Oxygen saturation in Arterial blood by Pulse oximetry")
+                .valueQuantity(94.0).valueUnit("%").interpretation("L")
+                .effectiveDateTime(LocalDateTime.now().minusDays(2)).issued(LocalDateTime.now().minusDays(2)).build());
+
+        log.info("✅ Seeded {} patients, {} ADT events, {} medications, {} encounters, {} allergies, {} observations",
+                patientRepo.count(), adtRepo.count(), medRepo.count(), encRepo.count(), allergyRepo.count(), observationRepo.count());
     }
 }
