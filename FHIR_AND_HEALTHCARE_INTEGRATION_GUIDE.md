@@ -359,3 +359,189 @@ curl -X POST http://localhost:8081/api/langley/pediatric/allergy-sync \
 # 2. Fetch Synced Allergies for Patient 1
 curl http://localhost:8081/api/patients/1/allergies | jq .
 ```
+
+---
+
+## 9. Regional Health Integration Architecture & System Landscape
+
+When working in regional health authority ecosystems (such as British Columbia's regional and provincial health organizations), integration engineers build interfaces that connect hospital EHRs, provincial repositories, and specialty clinical systems:
+
+```
+ +-----------------------------------------------------------------------------------+
+ |                             Provincial Ecosystem                                  |
+ |                                                                                   |
+ |  +--------------------+     +--------------------+     +-----------------------+  |
+ |  |  Client Registry   |     |    PharmaNet       |     |  Provincial Lab (PLIS)|  |
+ |  |    (EMPI / PHN)    |     | (Medication Recs)  |     |   (Lab Test Results)  |  |
+ |  +---------+----------+     +---------+----------+     +-----------+-----------+  |
+ +------------|--------------------------|----------------------------|--------------+
+              | FHIR / HL7               | HL7 / Web Services         | HL7 v2 ORU
+              v                          v                            v
+ +-----------------------------------------------------------------------------------+
+ |                       Regional Interface Engine (Mirth / Rhapsody)                |
+ +-----------------------------------------------------------------------------------+
+              |                          |                            |
+              v                          v                            v
+ +------------------------+  +------------------------+  +---------------------------+
+ | Acute Care EHR (Cerner)|  | Community Gateway (C#) |  | Specialty Backend (Java)  |
+ +------------------------+  +------------------------+  +---------------------------+
+```
+
+### 9.1 Enterprise System Components & Protocols
+
+1. **Provincial Client Registry & EMPI (Enterprise Master Person Index):**
+   - **Role:** Central source of truth for patient identity across the province.
+   - **Key Standards:** Uses BC PHN (10 digits starting with `9`) as the primary key. Interfaced via FHIR `Patient/$match` or HL7 v2 `ADT^A40` (Merge Patient) and `QBP^Q22` (Query by Parameter).
+2. **Acute Care Enterprise EHRs (e.g., CST Cerner, Meditech):**
+   - **Role:** Main hospital clinical database for Inpatient ADT, Nursing Documentation, Physician Orders (CPOE), and Clinical Notes.
+   - **Key Standards:** Emits continuous stream of HL7 v2 `ADT` (`A01` Admit, `A02` Transfer, `A03` Discharge, `A08` Update) and `ORU^R01` (Lab Results) over TCP/MLLP connections.
+3. **PharmaNet (Provincial Drug Repository):**
+   - **Role:** Central BC network connecting all community pharmacies and hospital emergency departments to maintain a unified provincial medication profile.
+   - **Key Standards:** Interfaced via secure HL7 v3 / Web Services or FHIR `MedicationRequest` / `MedicationStatement`.
+4. **PLIS (Provincial Laboratory Information System):**
+   - **Role:** Central repository storing lab results from hospital labs and private community laboratories (e.g. LifeLabs).
+   - **Key Standards:** Consumes and redistributes HL7 v2 `ORU^R01` messages with standardized LOINC codes.
+5. **CareConnect (Provincial EHR Portal):**
+   - **Role:** Clinician viewer aggregating acute, lab, imaging, and medication data into a unified longitudinal record.
+
+### 9.2 Privacy & Security Compliance (FOIPPA / PII Masking)
+
+Under British Columbia's **Freedom of Information and Protection of Privacy Act (FOIPPA)**:
+- **PHI Masking in Logs:** System logs, interface engine traces, and exception dumps **MUST NEVER** output unmasked PHNs or patient names.
+- **TLS Encryption:** All HTTP endpoints carrying FHIR JSON payloads must use TLS 1.3 in production environments (`https://`).
+- **Audit Logging:** Every FHIR read/search operation must log the accessing user ID, patient target ID, and timestamp (auditable via FHIR `AuditEvent` resources).
+
+---
+
+## 10. Technical Architecture & System Design Q&A Reference
+
+This section provides architectural scenarios, reference responses, and technical explanations designed for enterprise Java & C# health integration engineering.
+
+---
+
+### Q1: What is the difference between HL7 v2 ACKs (`AA`, `AE`, `AR`) and FHIR `OperationOutcome`? How do you handle transient vs permanent errors?
+
+**Model Answer:**
+- **HL7 v2 Acknowledgment (ACK):**
+  - **`AA` (Application Accept):** Message parsed and processed successfully.
+  - **`AE` (Application Error):** Business logic failure (e.g., patient not found, invalid PHN check digit). The sender **should NOT automatically retry** without payload correction.
+  - **`AR` (Application Reject):** System-level or syntax failure (e.g., corrupted MSH segment, database down). The sender **MUST retry** using exponential backoff.
+- **FHIR `OperationOutcome`:**
+  - Standard FHIR resource returned with HTTP status codes (`400 Bad Request`, `404 Not Found`, `500 Internal Error`).
+  - Contains `issue` elements with `severity` (`fatal`, `error`, `warning`, `information`), `code` (`invalid`, `not-found`, `transient`), and `diagnostics`.
+- **Error Handling Strategy in Integration Engines:**
+  - **Transient Errors (e.g. DB connection timeout, HTTP 503):** Route payload to a **Dead Letter Queue (DLQ)** with automatic retry policy (e.g., 3 retries at 10s, 60s, 300s).
+  - **Permanent Errors (e.g. Invalid PHN Modulus-11 checksum, Malformed JSON):** Log masked payload to alert queue for manual interface analyst review.
+
+---
+
+### Q2: How do you guarantee **Idempotency** when ingesting high-volume HL7 v2 streams or processing FHIR POST requests?
+
+**Model Answer:**
+- **HL7 v2 Idempotency:**
+  - Use `MSH-10` (**Message Control ID**) combined with `PID-3` (MRN) and event timestamp.
+  - Maintain a deduplication table in PostgreSQL with a unique constraint on `(message_control_id, sending_facility)`.
+  - If a duplicate message arrives within a defined window (e.g., 24 hours), return the stored `ACK` without re-executing database mutations.
+- **FHIR REST Idempotency:**
+  - Use **`PUT`** instead of `POST` when the client specifies the logical ID (`PUT /api/fhir/Patient/MRN-10001`).
+  - For `POST` calls, implement conditional creates using the `If-None-Exist` header:
+    `POST /api/fhir/Patient` with header `If-None-Exist: identifier=http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn|9001234567`.
+  - In C# and Java, execute upsert queries (`ON CONFLICT (mrn) DO UPDATE`) to prevent primary key collisions.
+
+---
+
+### Q3: Explain the SMART on FHIR App Launch framework and how patient launch context is passed.
+
+**Model Answer:**
+1. **EHR Launch Sequence:**
+   - The EHR opens an embedded iframe or webview targeting the SMART app's launch URL with `iss` (FHIR Server Base URL) and `launch` (opaque launch identifier).
+2. **Authorization Request (`GET /oauth2/authorize`):**
+   - The SMART app redirects to the FHIR Server's OAuth2 authorize endpoint, requesting scopes such as `launch/patient patient/*.read openid fhirUser`.
+3. **Token Exchange (`POST /oauth2/token`):**
+   - The app exchanges the received authorization code for an OAuth2 access token.
+   - The token response includes the `access_token`, `expires_in`, and the **launch context parameter**:
+     ```json
+     {
+       "access_token": "eyJhbGciOi...",
+       "token_type": "Bearer",
+       "scope": "launch/patient patient/*.read",
+       "patient": "10001"
+     }
+     ```
+4. **Context-Aware Querying:**
+   - The SMART app uses the returned `"patient": "10001"` parameter to immediately query `/api/fhir/Observation?patient=10001` without prompting the user to re-select the patient.
+
+---
+
+### Q4: How do you handle patient identity matching conflicts (e.g., duplicate MRNs or missing PHNs)?
+
+**Model Answer:**
+- Implement a two-phase Client Registry matching architecture:
+  1. **Deterministic Matching:**
+     - Query exact matches on **BC PHN** (validated via Modulus-11). If matched, automatically link the record.
+  2. **Probabilistic / Rule-Based Matching (CRS `$match`):**
+     - Match on `(LastName + FirstName Soundex + DateOfBirth + Gender)`.
+     - Assign match weight scores (e.g., Exact PHN = 100%, Name+DOB+Gender = 85%, Name+DOB only = 60%).
+     - **Score $\ge$ 85%:** Auto-link.
+     - **Score 50% - 84%:** Flag as potential duplicate for Health Records / HIM merge review (`ADT^A40`).
+     - **Score < 50%:** Register as new patient.
+
+---
+
+### Q5: What is the difference between FHIR `transaction` and `batch` Bundles? How does error handling differ?
+
+**Model Answer:**
+- **FHIR `transaction` Bundle:**
+  - Executed as an **atomic, single database transaction** (`@Transactional` in Spring Boot, `IDbContextTransaction` in EF Core).
+  - If **ANY** entry in the bundle fails (e.g., 3rd entry out of 10 fails), the **entire bundle is rolled back**, no database changes persist, and a single `OperationOutcome` error is returned.
+- **FHIR `batch` Bundle:**
+  - Executed as **independent, un-bundled requests**.
+  - Each entry is processed independently. If entry #3 fails, entries #1, #2, and #4-10 still succeed and persist.
+  - The response bundle contains individual HTTP status codes (`201 Created`, `400 Bad Request`) for each entry.
+
+---
+
+### Q6: Why should you use `DateOnly` instead of `DateTime` for Patient Date of Birth in C# .NET healthcare applications?
+
+**Model Answer:**
+- A Date of Birth is a **calendar date** without time or timezone offset metadata.
+- When `DateTime` (or PostgreSQL `timestamp with time zone`) is used:
+  - DOB `1988-12-15T00:00:00Z` parsed on a server running in Pacific Time (UTC-8) shifts to `1988-12-14 16:00:00`.
+  - This causes catastrophic clinical identity errors where patient birthdays change depending on server timezone configurations.
+- In .NET 6+, using `DateOnly` maps natively to PostgreSQL `date` columns, eliminating timezone shifts completely and ensuring exact date preservation across distributed interfaces.
+
+---
+
+### Q7: How do you optimize Mirth Connect / Interface Engine throughput under high message volumes?
+
+**Model Answer:**
+1. **Asynchronous Destination Writers:** Set destination queues to `Asynchronous` mode so TCP receivers respond immediately with `ACK` without waiting for downstream HTTP/DB calls.
+2. **Connection Pooling & Persistent Connections:** Reuse HTTP clients and database connection pools (`HikariCP` in Java, `Npgsql` pool in C#) rather than reopening socket connections per message.
+3. **Selective Logging:** Disable full message XML/JSON content logging in production; log only Message IDs and MRNs.
+4. **Batch DB Writes:** Aggregate inbound records into bulk inserts (`INSERT INTO ... VALUES (...)`) or FHIR Bundle transactions rather than executing individual single-row SQL statements.
+
+---
+
+### Q8: Compare Java (Spring Boot / HAPI FHIR) and C# (.NET 10 Web API) design patterns for building scalable healthcare integration services.
+
+**Model Answer:**
+
+| Architectural Concern | Java (Spring Boot) Implementation | C# (.NET 10 Web API) Implementation |
+| :--- | :--- | :--- |
+| **Dependency Injection** | `@Autowired` / `@RequiredArgsConstructor` (Lombok) | Built-in `IServiceCollection` (`AddScoped`, `AddSingleton`) |
+| **ORM / Data Access** | Spring Data JPA / Hibernate (`JpaRepository`) | Entity Framework Core (`DbContext`, `DbSet<T>`) |
+| **FHIR Schema Parsing** | HAPI FHIR Core (`ca.uhn.hapi.fhir`) / Jackson | System.Text.Json / Firely .NET SDK (`Hl7.Fhir.R4`) |
+| **Async / Multi-threading** | CompletableFuture, Virtual Threads (Java 21) | `async` / `await`, Task Parallel Library (TPL) |
+| **Transaction Management**| `@Transactional` annotation | `_context.Database.BeginTransactionAsync()` |
+| **Date Modeling** | `java.time.LocalDate` | `System.DateOnly` |
+
+---
+
+## 11. Integration Engineering Competency Checklist
+
+- [x] **Understand HL7 v2 vs FHIR R4 mapping:** PID → Patient, PV1 → Encounter, DG1 → Condition, OBX → Observation.
+- [x] **Master BC PHN Validation:** Modulus-11 algorithm weights `[2, 4, 8, 5, 10, 9, 7, 3]`, starts with `9`, 10 digits total.
+- [x] **Practice FHIR Bundle Transactions:** Test `POST /api/fhir` (Java) and `POST /fhir` (C#) using the included `curl` scripts.
+- [x] **Know FOIPPA Privacy Controls:** PHI masking in logs (`912****789`), TLS 1.3 transport security, audit logging.
+- [x] **Be ready for Architecture Questions:** Integration engines (Mirth/Rhapsody), EMPI client matching, SMART on FHIR OAuth2 flows.
+
