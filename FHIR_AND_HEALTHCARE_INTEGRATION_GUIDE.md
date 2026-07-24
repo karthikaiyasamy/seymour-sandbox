@@ -76,7 +76,11 @@ DG1|1|I10|E11.69^Type 2 diabetes mellitus with hyperglycemia^ICD-10|||A
 OBX|1|NM|4548-4^HbA1c^LN||9.4|%|4.0-6.0|H|||F
 ```
 
-### 2.3 Equivalent FHIR R4 JSON Payload
+### 2.3 Equivalent FHIR R4 Decomposition (Resources & Bundle)
+
+Unlike HL7 v2 which packages demographics, admission, diagnosis, and lab results into a single pipe-delimited packet, FHIR R4 decomposes the data into discrete, normalized resources linked by references:
+
+#### 1. `PID` Segment → `Patient` Resource
 ```json
 {
   "resourceType": "Patient",
@@ -85,12 +89,55 @@ OBX|1|NM|4548-4^HbA1c^LN||9.4|%|4.0-6.0|H|||F
     {
       "use": "official",
       "system": "http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn",
-      "value": "9001234567"
+      "value": "BC9001234567"
     }
   ],
   "name": [{ "family": "Chen", "given": ["Margaret"] }],
   "gender": "female",
   "birthDate": "1948-03-12"
+}
+```
+
+#### 2. `PV1` Segment → `Encounter` Resource
+```json
+{
+  "resourceType": "Encounter",
+  "id": "enc-88001",
+  "status": "in-progress",
+  "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "IMP", "display": "inpatient encounter" },
+  "subject": { "reference": "Patient/1", "display": "Margaret Chen" },
+  "location": [{ "location": { "display": "Vancouver General Hospital - 4 North, Room 412, Bed A" } }]
+}
+```
+
+#### 3. `DG1` Segment → `Condition` Resource (Diagnosis)
+```json
+{
+  "resourceType": "Condition",
+  "id": "cond-101",
+  "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }] },
+  "code": {
+    "coding": [{ "system": "http://hl7.org/fhir/sid/icd-10", "code": "E11.69", "display": "Type 2 diabetes mellitus with hyperglycemia" }],
+    "text": "Type 2 diabetes mellitus with hyperglycemia"
+  },
+  "subject": { "reference": "Patient/1" }
+}
+```
+
+#### 4. `OBX` Segment → `Observation` Resource (Lab Result)
+```json
+{
+  "resourceType": "Observation",
+  "id": "obs-201",
+  "status": "final",
+  "category": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "laboratory" }] }],
+  "code": {
+    "coding": [{ "system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood" }],
+    "text": "HbA1c"
+  },
+  "subject": { "reference": "Patient/1" },
+  "valueQuantity": { "value": 9.4, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%" },
+  "interpretation": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", "code": "H", "display": "High" }] }]
 }
 ```
 
