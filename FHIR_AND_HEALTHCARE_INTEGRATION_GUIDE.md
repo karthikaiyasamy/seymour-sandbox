@@ -537,11 +537,40 @@ This section provides architectural scenarios, reference responses, and technica
 
 ---
 
-## 11. Integration Engineering Competency Checklist
+## 11. US Core vs. Canadian Baseline (CA Baseline) FHIR Implementation Comparison
+
+Healthcare integration engineers operating in North America must understand key differences between **US Core IG** (HL7 US Realm) and **Canadian Baseline IG (CA Baseline)** / BC Provincial Profiles:
+
+| Architectural Dimension | US Core Implementation Guide (US Realm) | Canadian Baseline IG (CA Baseline / BC Profiles) |
+| :--- | :--- | :--- |
+| **Primary Patient Identifiers** | SSN (`.../us-ssn`), NPI (Providers), Driver's License | Provincial Health Number (e.g. BC PHN `.../ca-bc-patient-phn`), JHN (Jurisdictional Health Number), MRN |
+| **Clinical Diagnoses & Coding** | ICD-10-CM, SNOMED CT | **ICD-10-CA** (Canadian modification of ICD-10), SNOMED CT |
+| **Medical Procedures & Coding** | CPT (Current Procedural Terminology), ICD-10-PCS | **CCI** (Canadian Classification of Health Interventions) |
+| **Medication Terminology** | RxNorm | **DIN** (Drug Identification Number / Health Canada DPD) & RxNorm / SNOMED CT |
+| **Demographics & Ethnicity** | **OMB Race & Ethnicity** extensions (`us-core-race`, `us-core-ethnicity`) | Canadian Indigenous Status extensions, Official Language preference (`en-CA`, `fr-CA`) |
+| **Geography & Address Formats** | US State (2-letter abbreviation), 5-digit ZIP code | Province/Territory (e.g. `BC`, `AB`), 6-character Alphanumeric Postal Code (`A1A 1A1`) |
+| **Governance & Regulatory Standards** | US ONC (21st Century Cures Act mandates) | HL7 Canada / Canada Health Infoway & Provincial Digital Health Authorities |
+
+### Key Technical Takeaways:
+
+1. **System URIs & Patient Identifiers:**  
+   US Core relies on SSN and NPI system URIs. Canadian interfaces use Canada Health Infoway naming systems (such as `http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn` for BC PHNs) and Modulus-11 check digit validation.
+2. **Diagnosis & Procedure Code Sets:**  
+   US systems use `ICD-10-CM` and `CPT`. Canadian enterprise implementations use **`ICD-10-CA`** for diagnoses and **`CCI`** (Canadian Classification of Health Interventions) for procedures.
+3. **Medication Identifiers:**  
+   In Canada, Health Canada assigns 8-digit **DINs** (Drug Identification Numbers) to licensed drug products. FHIR `MedicationRequest` resources in Canadian profile implementations map DINs alongside SNOMED CT / RxNorm.
+4. **Demographic Extensions:**  
+   US Core mandates US OMB Race/Ethnicity extensions (`us-core-race`). Canadian profiles omit OMB codes and utilize Canadian extensions for Indigenous identity and official language preference (`en-CA` / `fr-CA`).
+
+---
+
+## 12. Integration Engineering Competency Checklist
 
 - [x] **Understand HL7 v2 vs FHIR R4 mapping:** PID → Patient, PV1 → Encounter, DG1 → Condition, OBX → Observation.
 - [x] **Master BC PHN Validation:** Modulus-11 algorithm weights `[2, 4, 8, 5, 10, 9, 7, 3]`, starts with `9`, 10 digits total.
+- [x] **Know US Core vs CA Baseline Differences:** ICD-10-CA vs ICD-10-CM, CCI vs CPT, DIN vs RxNorm, BC PHN vs SSN.
 - [x] **Practice FHIR Bundle Transactions:** Test `POST /api/fhir` (Java) and `POST /fhir` (C#) using the included `curl` scripts.
 - [x] **Know FOIPPA Privacy Controls:** PHI masking in logs (`912****789`), TLS 1.3 transport security, audit logging.
 - [x] **Be ready for Architecture Questions:** Integration engines (Mirth/Rhapsody), EMPI client matching, SMART on FHIR OAuth2 flows.
+
 
