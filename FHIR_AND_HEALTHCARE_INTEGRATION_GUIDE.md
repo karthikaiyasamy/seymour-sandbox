@@ -67,7 +67,19 @@ Health integration engineers routinely bridge legacy **HL7 v2** pipe-delimited m
 | **Terminology** | HL7 Tables, local code sets | LOINC, SNOMED CT, RxNorm, UCUM |
 | **Validation** | Segment length & delimiter checks | Structural FHIR schemas & `OperationOutcome` responses |
 
-### 2.2 HL7 v2 Segment Structure Example (ADT^A01 Admit)
+### 2.2 HL7 v2 Segment to FHIR R4 Resource Cheat Sheet
+
+| HL7 v2 Segment | Standard Meaning | Corresponding FHIR R4 Resource | Key Fields / Purpose |
+| :--- | :--- | :--- | :--- |
+| **`PID`** | Patient Identification | **`Patient`** | Demographics (MRN, PHN, Name, DOB, Sex, Address) |
+| **`PV1`** | Patient Visit | **`Encounter`** | Class (Inpatient/Outpatient), Ward, Room, Bed, Attending Doctor |
+| **`DG1`** | Diagnosis | **`Condition`** (or `Encounter.diagnosis`) | Diagnosis Description & Code (e.g. ICD-10 `E11.69`) |
+| **`OBX`** | Observation / Lab Result / Vitals | **`Observation`** | Lab Test Values (HbA1c, Glucose), Vitals, Units, Abnormal Flags |
+| **`AL1`** | Allergy Information | **`AllergyIntolerance`** | Allergen (Penicillin, Peanuts), Category, Severity, Reaction |
+| **`RXA` / `RXO`** | Pharmacy Admin / Order | **`MedicationRequest` / `MedicationAdministration`** | Medication Name, RxNorm Code, Dosage, Frequency, Route |
+| **`NK1`** | Next of Kin | **`Patient.contact`** or **`RelatedPerson`** | Emergency Contacts, Primary Caregivers, Relationships |
+
+### 2.3 HL7 v2 Segment Structure Example (ADT^A01 Admit)
 ```hl7
 MSH|^~\&|SEYMOUR_EHR|VANCOUVER_GH|REC_APP|REC_FAC|20260721093000||ADT^A01^ADT_A01|MSG1001|P|2.4
 PID|1||MRN-10001^^^MRN||Chen^Margaret||19480312|F|||145 Maple Street^^Vancouver^BC^V5K 1A1^CA||604-555-0101||||||BC9001234567
