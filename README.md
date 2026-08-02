@@ -1,8 +1,9 @@
 # Healthcare Sandbox — Regional Interoperability & FHIR Workspace
 
-A local FHIR R4-shaped REST API sandbox built with **Java (Spring Boot)** and **C# (.NET 10)**, designed to simulate real-world British Columbia (BC) clinical workflows and healthcare integration architectures.
+A local FHIR R4-shaped REST API sandbox built with **Java (Spring Boot / HAPI FHIR R4)** and **C# (.NET 10)**, designed to simulate real-world British Columbia (BC) clinical workflows and regional healthcare integration architectures.
 
-**IMPORTANT: All patient data is synthetic and should not be used in any real-world clinical settings.**
+> ⚠️ **IMPORTANT EDUCATIONAL DISCLAIMER**:  
+> **This repository is an open-source developer learning sandbox designed exclusively for learning healthcare software engineering, HL7 v2 messaging, HAPI FHIR R4 standards, and BC identity governance (Modulus-11 PHN validation). All patient names, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial data are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
 
 > 📘 **Looking for deep integration engineering documentation?**  
 > Read the complete guide: **[FHIR & Healthcare Integration Engineering Masterclass](https://github.com/karthikaiyasamy/seymour-sandbox/blob/main/FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)** covering HL7 v2 vs FHIR R4, Canadian Baseline, BC PHN checksum algorithms, SMART-on-FHIR, and dual-stack Java/C# patterns.
@@ -60,6 +61,7 @@ dotnet run
 | Module | Stack | Port | Endpoint Focus |
 | :--- | :--- | :--- | :--- |
 | **SeymorFHIR** | Java / Spring Boot | `8090` | FHIR R4 APIs (`/api/fhir/Patient`, `Observation`, `AllergyIntolerance`, `Encounter`, `MedicationRequest`), FHIR Bundle Transactions (`POST /api/fhir`), SMART on FHIR OAuth2 (`/oauth2/authorize`, `/oauth2/token`). |
+| **TerryFoxMemorial** | Java / HAPI FHIR R4 | `8085` | Native HAPI FHIR R4 Engine (`/fhir/Patient`, `Condition`, `ResearchStudy`, `ResearchSubject`, `DiagnosticReport`), mCODE Oncology TNM Staging, Pathology/Genomic feeds (`POST /api/terryfox/hl7`), Capability Statement (`/fhir/metadata`). |
 | **LangleyGeneralGateway** | C# / .NET 10 | `8083` | C# FHIR APIs (`/fhir/Patient`, `/fhir/Observation`), C# FHIR Bundle Transactions (`POST /fhir`), Native HL7 v2 Ingest (`POST /api/langleygeneral/hl7`), Patient Sync (`POST /api/langleygeneral/sync`). |
 | **langley-backend** | Java / Spring Boot | `8081` | Pediatric Sync Webhooks (`/api/langley/pediatric/sync`, `/api/langley/pediatric/allergy-sync`), Patient Roster & Labs (`/api/patients`). |
 
@@ -83,6 +85,19 @@ seymour-sandbox/
 │   │   │   ├── AllergyIntoleranceController.java ← FHIR SNOMED Allergy endpoint
 │   │   │   └── BundleController.java        ← FHIR Transaction Bundle processor
 │   │   └── util/PhnValidator.java           ← BC PHN Modulus-11 check digit logic
+│
+├── TerryFoxMemorial/                        ← Terry Fox Memorial Cancer Hospital (Java / HAPI FHIR R4)
+│   ├── pom.xml
+│   ├── src/main/java/com/terryfox/hospital/
+│   │   ├── config/TerryFoxHapiServerConfig.java ← HAPI RestfulServer Servlet bean configuration
+│   │   ├── provider/                        ← Native HAPI ResourceProviders (IResourceProvider)
+│   │   │   ├── PatientResourceProvider.java      ← HAPI FHIR Patient & $match provider
+│   │   │   ├── ConditionResourceProvider.java    ← mCODE Cancer TNM Staging provider
+│   │   │   ├── ResearchStudyResourceProvider.java← Clinical Trial Protocol provider
+│   │   │   ├── ResearchSubjectResourceProvider.java← Patient Trial Enrollment provider
+│   │   │   └── DiagnosticReportResourceProvider.java ← NGS Genomic & Pathology provider
+│   │   ├── interceptor/TerryFoxAuditInterceptor.java ← HAPI Audit logging interceptor
+│   │   └── controller/Hl7OncologyIngestController.java ← HL7 v2 pathology ORU^R01 ingestion
 │
 ├── LangleyChildrensHospital/
 │   ├── langley-backend/                     ← Pediatric Portal Backend (Java / Spring Boot)

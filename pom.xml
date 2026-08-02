@@ -27,5 +27,6 @@
     <modules>
         <module>SeymorFHIR</module>
         <module>LangleyChildrensHospital/langley-backend</module>
+        <module>TerryFoxMemorial</module>
     </modules>
 </project>
