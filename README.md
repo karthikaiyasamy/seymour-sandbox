@@ -43,6 +43,9 @@ mvn clean package -DskipTests
 # Run Seymour FHIR Server (Java - Port 8090)
 cd SeymorFHIR && mvn spring-boot:run
 
+# Run Terry Fox Memorial Hospital HAPI FHIR Server (Java - Port 8085)
+cd TerryFoxMemorial && mvn spring-boot:run
+
 # Run Langley Children's Hospital Backend (Java - Port 8081)
 cd LangleyChildrensHospital/langley-backend && mvn spring-boot:run
 ```
