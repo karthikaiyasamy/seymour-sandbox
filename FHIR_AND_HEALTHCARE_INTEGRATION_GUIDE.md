@@ -1,6 +1,6 @@
 # FHIR & Healthcare Integration Engineering Masterclass (Java & C#)
 
-Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass Guide**. This document provides a comprehensive, deep-dive architectural reference for integration engineers, health system software developers, and interface analysts working with **HL7 v2**, **FHIR R4**, **mCODE Oncology Data Models**, **HAPI FHIR Java Framework**, **C# .NET 10 Web APIs**, **SMART on FHIR OAuth2**, **Mirth Connect Middleware**, and enterprise Canadian/BC EHR standards (**MEDITECH**, **Cerner Millennium**, and **Epic**).
+Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass Guide**. This document provides a comprehensive, deep-dive architectural reference for integration engineers, health system software developers, and interface analysts working with **HL7 v2**, **FHIR R4**, **mCODE Oncology Data Models**, **HAPI FHIR Java Framework**, **C# .NET 10 Web APIs**, **SMART on FHIR OAuth2**, **mTLS & System-to-System Token Security**, **Mirth Connect Middleware**, **BC Longitudinal Record Access (LRA)**, and enterprise Canadian/BC EHR standards (**MEDITECH Expanse**, **Cerner Millennium**, and **Epic**).
 
 ---
 
@@ -9,15 +9,17 @@ Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass G
 1. [Architectural Overview & Ecosystem Topology](#1-architectural-overview--ecosystem-topology)
 2. [HL7 v2 vs FHIR R4: Core Concepts & Protocols](#2-hl7-v2-vs-fhir-r4-core-concepts--protocols)
 3. [Canadian Baseline (CA Baseline) & BC Personal Health Number (PHN) Standards](#3-canadian-baseline-ca-baseline--bc-personal-health-number-phn-standards)
-4. [Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic](#4-enterprise-ehr-architectures-meditech-cerner-millennium--epic)
-5. [Seymour Regional EHR (Java / Spring Boot - Port 8090)](#5-seymour-regional-ehr-java--spring-boot---port-8090)
-6. [Terry Fox Memorial Hospital: HAPI FHIR R4 Engine & Oncology (Java - Port 8085)](#6-terry-fox-memorial-hospital-hapi-fhir-r4-engine--oncology-java---port-8085)
-7. [Langley General Gateway (C# .NET 10 - Port 8083)](#7-langley-general-gateway-c-net-10---port-8083)
-8. [Langley Children's Hospital Backend (Java - Port 8081)](#8-langley-childrens-hospital-backend-java---port-8081)
-9. [Multi-Hospital Regional Interoperability Sync Pipeline](#9-multi-hospital-regional-interoperability-sync-pipeline)
-10. [Integration Engine Pipeline (Mirth Connect & Webhooks)](#10-integration-engine-pipeline-mirth-connect--webhooks)
-11. [SMART on FHIR OAuth2 Authentication & Launch Context](#11-smart-on-fhir-oauth2-authentication--launch-context)
-12. [End-to-End API Testing & Curl Command Reference](#12-end-to-end-api-testing--curl-command-reference)
+4. [BC Longitudinal Record Access (LRA) & MSP Coverage Eligibility (HIBC)](#4-bc-longitudinal-record-access-lra--msp-coverage-eligibility-hibc)
+5. [Enterprise System-to-System Security: mTLS & OAuth2 Token Exchange](#5-enterprise-system-to-system-security-mtls--oauth2-token-exchange)
+6. [Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic](#6-enterprise-ehr-architectures-meditech-cerner-millennium--epic)
+7. [Seymour Regional EHR (Java / Spring Boot - Port 8090)](#7-seymour-regional-ehr-java--spring-boot---port-8090)
+8. [Terry Fox Memorial Hospital: HAPI FHIR R4 Engine & Oncology (Java - Port 8085)](#8-terry-fox-memorial-hospital-hapi-fhir-r4-engine--oncology-java---port-8085)
+9. [Langley General Gateway (C# .NET 10 - Port 8083)](#9-langley-general-gateway-c-net-10---port-8083)
+10. [Langley Children's Hospital Backend (Java - Port 8081)](#10-langley-childrens-hospital-backend-java---port-8081)
+11. [Multi-Hospital Regional Interoperability Sync Pipeline](#11-multi-hospital-regional-interoperability-sync-pipeline)
+12. [Integration Engine Pipeline (Mirth Connect & Webhooks)](#12-integration-engine-pipeline-mirth-connect--webhooks)
+13. [SMART on FHIR OAuth2 Authentication & Launch Context](#13-smart-on-fhir-oauth2-authentication--launch-context)
+14. [End-to-End API Testing & Curl Command Reference](#14-end-to-end-api-testing--curl-command-reference)
 
 ---
 
@@ -62,7 +64,7 @@ The sandbox simulates a multi-hospital regional health authority ecosystem consi
                                                  (TCP MLLP Port 9085 -> Webhook)
 ```
 
-### Microservice Roles & Ports:
+### Microservice Roles & Architectural Highlights:
 
 1. **Seymour FHIR Server (`SeymorFHIR` — Java / Port 8090):**
    * Primary Regional EHR Repository.
@@ -112,9 +114,10 @@ Health integration engineers bridge legacy **HL7 v2** pipe-delimited messages an
 
 In Canadian health informatics (PHSA, Fraser Health, Provincial Client Registries), interoperability specifications mandate strict conformance to Canadian extensions:
 
-### 3.1 BC Personal Health Number (PHN) System URI
-BC PHNs are registered under the national extension naming system URI:
-`http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn`
+### 3.1 BC Personal Health Number (PHN) System URIs
+BC PHNs are registered under standard naming system URIs:
+* **Infoway Canada Standard URI**: `https://fhir.infoway-inforoute.ca/NamingSystem/ca-bc-patient-healthcare-id`
+* **Shared Health Exchange URI**: `http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn`
 
 ### 3.2 BC PHN Modulus-11 Validation Algorithm
 A valid BC PHN is **10 digits**, starts with a **9**, and passes the Modulus-11 check digit calculation across digits 2 to 9:
@@ -125,34 +128,73 @@ Where weights $w = [2, 4, 8, 5, 10, 9, 7, 3]$.
 The remainder is $R = \text{Sum} \pmod{11}$. If $R = 0$ or $R = 1$, the PHN is invalid.
 The calculated check digit is $11 - R$. The 10th digit of the PHN must equal this check digit.
 
-#### Code Implementation Reference:
-- **Java:** `com.terryfox.hospital.util.PhnValidator.isValidPhn(phn)`
-- **C#:** `LangleyGeneralGateway.Utils.PhnValidator.IsValidBCOnlyPHN(phn)`
-
-### 3.3 FOIPPA PII Security & Masking
+### 3.3 FOIPPA PII Security & Sanitization
 To comply with British Columbia's Freedom of Information and Protection of Privacy Act (FOIPPA), PII in terminal logs and audit traces is sanitized (`9234567897` $\rightarrow$ `923****897`).
 
 ---
 
-## 4. Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic
+## 4. BC Longitudinal Record Access (LRA) & MSP Coverage Eligibility (HIBC)
+
+The **BC Longitudinal Record Access (LRA)** FHIR Implementation Guide specifies provincial standards for validating patient insurance coverage directly with **Health Insurance BC (HIBC)**.
+
+### 4.1 Verification Query Mechanics
+To query HIBC for BC Medical Services Plan (MSP) active coverage, clinical systems execute a FHIR RESTful GET query against **`CoverageEligibilityResponse`**:
+
+```http
+GET /CoverageEligibilityResponse?patient.identifier=https://fhir.infoway-inforoute.ca/NamingSystem/ca-bc-patient-healthcare-id|9234567897&servicedate=2026-08-02
+Accept: application/fhir+json
+```
+
+### 4.2 Architectural Key Elements
+1. **Token Syntax**: `patient.identifier` is passed as `system|value`.
+2. **Date of Service**: `servicedate` parameter specifies the clinical encounter date.
+3. **Response Resource**: Returns a `CoverageEligibilityResponse` with `inforce: true` and `insurer: Health Insurance BC (HIBC)`.
+
+---
+
+## 5. Enterprise System-to-System Security: mTLS & OAuth2 Token Exchange
+
+Connecting external applications to provincial health endpoints (HIBC, BC Client Registry CRS) or third-party EHR portals requires strict **mTLS and OAuth2 Client Credentials Security**:
+
+```
+[ Clinical Application Server ]                                 [ Provincial Trust Gateway / Token Endpoint ]
+               │                                                                      │
+               ├─── 1. HTTPS 2-Way mTLS Handshake (Presents Client Cert x509) ───────►│
+               │    (Validates Whitelisted Certificate Common Name - CN)               │
+               │                                                                      │
+               ├─── 2. POST /auth Token Request (client_id + signed JWT Assertion) ──►│
+               │                                                                      │
+               │◄── 3. Returns OAuth2 Bearer Access Token ────────────────────────────┤
+               │                                                                      │
+               └─── 4. FHIR REST Request (Authorization: Bearer <token>) ─────────────►│
+```
+
+### Key Security Layers:
+1. **Certificate Pre-Registration**: The client certificate's Common Name (CN) and public key fingerprint are pre-registered and whitelisted in the developer/provincial portal.
+2. **Mutual TLS (mTLS)**: Handshake validates both server identity and client certificate before HTTP traffic is processed.
+3. **OAuth2 Client Credentials (RFC 7523)**: Authenticates using a signed JWT assertion (`RS256`), granting scoped access (`system/CoverageEligibilityResponse.read`).
+
+---
+
+## 6. Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic
 
 Understanding how the "Big 3" enterprise Health Information Systems (HIS) operate in Canadian health authorities is essential for integration software engineers:
 
-### 4.1 MEDITECH (Fraser Health & Interior Health Primary EHR)
+### 6.1 MEDITECH (Fraser Health & Interior Health Primary EHR)
 * **Architecture**: Enterprise EHR platform (Expanse / MAGIC) powering Fraser Health emergency, registration, laboratory, and inpatient wards.
 * **Engineering Responsibilities**:
   1. **HL7 v2 Interface Management**: Configuring `ADT^A01/A04/A08` demographic feeds and `ORU^R01` lab/radiology result interfaces.
   2. **MEDITECH Data Repository (DR) & T-SQL**: Querying MEDITECH's SQL Server Data Repository (DR) tables (`AdmPatients`, `PharMedications`, `LALibrary`) using T-SQL for clinical reporting and census dashboards.
   3. **MEDITECH Expanse REST / FHIR APIs**: Connecting external applications via RESTful FHIR R4 endpoints.
 
-### 4.2 Cerner Millennium / CST Cerner (PHSA, VCH, PHC)
+### 6.2 Cerner Millennium / CST Cerner (PHSA, VCH, PHC)
 * **Architecture**: The regional EHR deployed under BC's **Clinical Systems Transformation (CST)** across PHSA (BC Cancer, BC Children's, BC Women's), VCH, and PHC.
 * **Engineering Responsibilities**:
   1. **Cerner Ignite FHIR R4 APIs (`code.cerner.com`)**: Integrating web/mobile clinical applications using Cerner's Ignite R4 FHIR APIs, enforcing SMART-on-FHIR OAuth2 security scopes (`patient/Patient.read`, `patient/Observation.read`).
   2. **Foreign System Interfaces (FSI) & Mirth/Rhapsody**: Configuring Mirth Connect or Rhapsody interface channels to route messages between Cerner Millennium and provincial services (BC Client Registry CRS).
   3. **Cerner CCL (Cerner Command Language)**: Writing SQL-like CCL queries against Cerner Millennium tables (`person`, `encounter`, `orders`, `clinical_event`).
 
-### 4.3 Epic (SMART-on-FHIR & Interconnect Engine)
+### 6.3 Epic (SMART-on-FHIR & Interconnect Engine)
 * **Architecture**: Dominant North American EHR setting industry benchmarks for SMART-on-FHIR integration.
 * **Engineering Responsibilities**:
   1. **Epic Bridges**: Managing HL7 v2 interfaces for registration (`ADT`), scheduling (`SIU`), and billing (`DFT`).
@@ -160,23 +202,23 @@ Understanding how the "Big 3" enterprise Health Information Systems (HIS) operat
 
 ---
 
-## 5. Seymour Regional EHR (Java / Spring Boot - Port 8090)
+## 7. Seymour Regional EHR (Java / Spring Boot - Port 8090)
 
-### 5.1 Architecture & Tech Stack
+### 7.1 Architecture & Tech Stack
 - **Framework:** Spring Boot 3.2.5 with Java 21
 - **Database:** PostgreSQL (`seymour_db`) with H2 fallback
 - **Serialization:** Jackson FHIR JSON mapping + HAPI FHIR Core structures
 
-### 5.2 Core Capabilities
+### 7.2 Core Capabilities
 1. **FHIR R4 Resource Suite (`/api/fhir/*`):** `Patient`, `Encounter`, `Observation` (LOINC lab/vitals), `AllergyIntolerance` (SNOMED-CT allergies), `MedicationRequest`, and `DocumentReference`.
 2. **Atomic FHIR Bundle Transactions (`POST /api/fhir`):** Executes `@Transactional` batch/transaction bundle processing in Spring Data JPA.
 3. **SMART-on-FHIR OAuth2 Server (`/oauth2/authorize`, `/oauth2/token`):** Simulates authorization code grant flows, returning access tokens with patient launch context (`patient: "1"`).
 
 ---
 
-## 6. Terry Fox Memorial Hospital: HAPI FHIR R4 Engine & Oncology (Java - Port 8085)
+## 8. Terry Fox Memorial Hospital: HAPI FHIR R4 Engine & Oncology (Java - Port 8085)
 
-### 6.1 Architecture & Native HAPI Framework
+### 8.1 Architecture & Native HAPI Framework
 `TerryFoxMemorial` is a specialized **Oncology and Clinical Trials Hospital Node** built on the official **HAPI FHIR R4 Server Framework (`ca.uhn.fhir.rest.server.RestfulServer`)**:
 
 * **Servlet Mounting ([TerryFoxHapiServerConfig.java](file:///Users/karthik/dev/cerner/seymour-sandbox/TerryFoxMemorial/src/main/java/com/terryfox/hospital/config/TerryFoxHapiServerConfig.java)):**
@@ -189,7 +231,7 @@ Understanding how the "Big 3" enterprise Health Information Systems (HIS) operat
 * **HAPI Audit Interceptor ([TerryFoxAuditInterceptor.java](file:///Users/karthik/dev/cerner/seymour-sandbox/TerryFoxMemorial/src/main/java/com/terryfox/hospital/interceptor/TerryFoxAuditInterceptor.java)):**
   Annotated with `@Interceptor` and `@Hook(Pointcut.SERVER_INCOMING_REQUEST_POST_PROCESSED)` to log FHIR operations and client IP addresses (`ServletRequestDetails`).
 
-### 6.2 mCODE Oncology Data Modeling (Minimal Common Oncology Data Elements)
+### 8.2 mCODE Oncology Data Modeling (Minimal Common Oncology Data Elements)
 * **TNM Cancer Staging (`Condition.stage`):**
   Models AJCC 8th Edition staging (e.g. Stage IIIb NSCLC: `T3N2M0`, Stage IV Colorectal Carcinoma: `T4aN2bM1a`).
 * **Genomic NGS Biomarkers (`DiagnosticReport` & `Observation`):**
@@ -199,28 +241,28 @@ Understanding how the "Big 3" enterprise Health Information Systems (HIS) operat
 
 ---
 
-## 7. Langley General Gateway (C# .NET 10 - Port 8083)
+## 9. Langley General Gateway (C# .NET 10 - Port 8083)
 
-### 7.1 Architecture & Tech Stack
+### 9.1 Architecture & Tech Stack
 - **Framework:** ASP.NET Core Web API (.NET 10)
 - **ORM:** Entity Framework Core
 - **Database:** PostgreSQL (`langley_general_db`)
 
-### 7.2 Core Capabilities
+### 9.2 Core Capabilities
 1. **Timezone-Safe Date Processing:** Uses C# `DateOnly` for `DateOfBirth` to eliminate UTC/Pacific timezone shifts.
 2. **Native HL7 v2 Ingest Controller (`POST /api/langleygeneral/hl7`):** Utilizes `Utils/Hl7Parser.cs` to parse pipe-delimited text (`MSH`, `PID`, `PV1`, `OBX`), extract patient demographics & attached lab observations, validate BC PHN, and upsert records into PostgreSQL.
 3. **C# FHIR R4 Controllers (`/fhir/Patient`, `/fhir/Observation`, `/fhir`):** Side-by-side .NET 10 implementations of FHIR REST endpoints matching the Java Seymour server interface.
 
 ---
 
-## 8. Langley Children's Hospital Backend (Java - Port 8081)
+## 10. Langley Children's Hospital Backend (Java - Port 8081)
 
 - **Framework:** Spring Boot 3.2.5 with Java 21
 - **Role:** Specialized pediatric portal backend listening for HTTP webhook synchronization payloads (`/api/langley/pediatric/sync`, `/api/langley/pediatric/allergy-sync`) dispatched by integration middleware.
 
 ---
 
-## 9. Multi-Hospital Regional Interoperability Sync Pipeline
+## 11. Multi-Hospital Regional Interoperability Sync Pipeline
 
 The **Regional Sync Pipeline** connects all active health authority nodes in the sandbox:
 
@@ -238,7 +280,7 @@ The **Regional Sync Pipeline** connects all active health authority nodes in the
 
 ---
 
-## 10. Integration Engine Pipeline (Mirth Connect & Webhooks)
+## 12. Integration Engine Pipeline (Mirth Connect & Webhooks)
 
 In enterprise hospital integration, **Mirth Connect** acts as the central message broker:
 
@@ -250,7 +292,7 @@ In enterprise hospital integration, **Mirth Connect** acts as the central messag
 
 ---
 
-## 11. SMART on FHIR OAuth2 Authentication & Launch Context
+## 13. SMART on FHIR OAuth2 Authentication & Launch Context
 
 The sandbox simulates the **SMART App Launch Framework** (OAuth2 Authorization Code Grant with launch context):
 
@@ -272,9 +314,9 @@ The sandbox simulates the **SMART App Launch Framework** (OAuth2 Authorization C
 
 ---
 
-## 12. End-to-End API Testing & Curl Command Reference
+## 14. End-to-End API Testing & Curl Command Reference
 
-### 12.1 Terry Fox Memorial HAPI FHIR Server (Java - Port 8085)
+### 14.1 Terry Fox Memorial HAPI FHIR Server (Java - Port 8085)
 
 ```bash
 # 1. HAPI FHIR Capability Statement
@@ -298,7 +340,7 @@ curl -s -X POST -H "Content-Type: text/plain" \
 curl -s -X POST http://localhost:8085/api/terryfox/sync/regional | jq .
 ```
 
-### 12.2 Seymour Regional EHR Server (Java - Port 8090)
+### 14.2 Seymour Regional EHR Server (Java - Port 8090)
 
 ```bash
 # 1. Fetch All Active Patients
@@ -325,7 +367,7 @@ curl -X POST http://localhost:8090/api/fhir/Patient/\$match \
   }' | jq .
 ```
 
-### 12.3 Langley General Gateway (C# .NET 10 - Port 8083)
+### 14.3 Langley General Gateway (C# .NET 10 - Port 8083)
 
 ```bash
 # 1. Fetch C# Gateway Patients
