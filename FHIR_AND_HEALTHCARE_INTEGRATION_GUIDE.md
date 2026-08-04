@@ -378,3 +378,157 @@ curl -X POST http://localhost:8083/api/langleygeneral/hl7 \
   -H "Content-Type: text/plain" \
   -d $'MSH|^~\\&|LANGLEY_GENERAL|MAIN_FACILITY|GATEWAY|GATEWAY_FACILITY|20260721100000||ADT^A01^ADT_A01|MSG2001|P|2.4\nPID|1||MRN-90001^^^MRN||Smith^John||19850615|M|||100 Fraser Hwy^^Langley^BC^V3A 4X6^CA||604-555-9988||||||9234567897' | jq .
 ```
+
+---
+
+## 15. Architectural Resilience & Fault Tolerance: The Bulkhead Pattern
+
+In enterprise healthcare IT systems (such as high-throughput hospital gateways, EHR interfaces, and emergency alert processing), **system availability and fault isolation** are critical to patient safety. A single malfunctioning downstream service or a surge in heavy report queries must never crash the entire API server.
+
+```
+                              +-------------------------------------------------------------+
+                              |              Healthcare API Ingress Gateway                 |
+                              +------------------------------+------------------------------+
+                                                             |
+                     +---------------------------------------+---------------------------------------+
+                     |                                       |                                       |
+                     v                                       v                                       v
+      +------------------------------+        +------------------------------+        +------------------------------+
+      | Bulkhead Pool A: Emergency   |        | Bulkhead Pool B: Patient     |        | Bulkhead Pool C: Heavy Lab   |
+      | Alerts & Vitals (High Pri)   |        | Search & CRUD (Normal)       |        | Export Reports (Heavy/Slow)  |
+      | Dedicated Threads: 50        |        | Dedicated Threads: 30        |        | Dedicated Threads: 20        |
+      +--------------+---------------+        +--------------+---------------+        +--------------+---------------+
+                     |                                       |                                       |
+                     v                                       v                                       v
+      [Emergency Alert API - 10ms]            [Patient Query API - 50ms]              [Heavy Lab PDF Export - 5s]
+```
+
+### 15.1 Real-World Anchor: Nautical Bulkhead Compartments
+The **Bulkhead Pattern** is named after the physical watertight partitions inside a ship's hull. If a rock breaches Section A of a cargo ship, water fills Section A, but the **bulkhead partition walls prevent water from spilling into Sections B, C, or D**. Section A is damaged, but **the ship stays afloat**.
+
+In software, a Bulkhead **isolates execution resources (thread pools, memory, connection pools)** into distinct compartments so that an outage or thread starvation in one component cannot drown the rest of the application.
+
+---
+
+### 15.2 Problem Scenario: Thread Starvation in Healthcare Gateways
+
+Consider an API server with a unified thread pool of 100 threads handling three endpoints:
+1. `GET /api/fhir/Patient` (Fast query: ~20ms)
+2. `POST /api/alerts/emergency` (Critical ER alert: ~10ms)
+3. `POST /api/reports/heavy-lab-export` (Slow PDF generation: ~5,000ms)
+
+#### Without Bulkhead (Failure Cascade):
+If 100 clinicians trigger heavy lab exports simultaneously:
+- All 100 threads become occupied waiting for slow DB/PDF execution.
+- An incoming **Emergency ER Alert** arrives at the gateway... **and hangs or gets rejected with `504 Gateway Timeout`**. The entire hospital API is offline because one feature consumed 100% of server capacity.
+
+#### With Bulkhead Isolation:
+By partitioning capacity into dedicated thread pools:
+- **Emergency Alerts Pool:** Max 50 threads reserved
+- **Patient CRUD Pool:** Max 30 threads reserved
+- **Heavy Lab Export Pool:** Max 20 threads capped
+
+When 500 requests flood the **Heavy Lab Export** endpoint:
+- Only the 20 threads in Pool C fill up. Extra export requests fail gracefully with HTTP `429 Too Many Requests` or `503 Service Unavailable`.
+- **Emergency Alerts and Patient Queries continue operating at 100% full speed.** The application stays afloat!
+
+---
+
+### 15.3 Implementation Reference: Java (Resilience4j) & C# (.NET Polly)
+
+#### A. Java Spring Boot Implementation (Resilience4j)
+```java
+package com.healthcare.sandbox.service;
+
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import org.springframework.stereotype.Service;
+import java.util.Map;
+
+@Service
+public class HeavyReportService {
+
+    // Caps execution of heavy reports to a dedicated bulkhead pool
+    @Bulkhead(name = "heavyReportPool", fallbackMethod = "fallbackHeavyReport")
+    public Map<String, Object> generateLabExportPdf(Long patientId) {
+        // Heavy processing / PDF generation logic
+        simulateHeavyDbQuery();
+        return Map.of("status", "SUCCESS", "patientId", patientId);
+    }
+
+    // Graceful fallback when the bulkhead pool is full
+    public Map<String, Object> fallbackHeavyReport(Long patientId, Throwable t) {
+        return Map.of(
+            "status", "DEGRADED",
+            "message", "Heavy export system busy. Request queued for background execution.",
+            "patientId", patientId
+        );
+    }
+
+    private void simulateHeavyDbQuery() {
+        try { Thread.sleep(5000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+}
+```
+
+`application.yml` Bulkhead Configuration:
+```yaml
+resilience4j.thread-pool-bulkhead:
+  instances:
+    heavyReportPool:
+      maxThreadPoolSize: 20
+      coreThreadPoolSize: 10
+      queueCapacity: 50
+```
+
+---
+
+#### B. C# .NET Implementation (Polly Bulkhead Policy)
+```csharp
+using Polly;
+using Polly.Bulkhead;
+
+public class HealthcareGatewayResilience
+{
+    private readonly AsyncBulkheadPolicy _heavyReportBulkhead;
+
+    public HealthcareGatewayResilience()
+    {
+        // Max 10 concurrent heavy report executions, max 5 queued actions
+        _heavyReportBulkhead = Policy.BulkheadAsync(
+            maxParallelization: 10,
+            maxQueuingActions: 5,
+            onBulkheadRejectedAsync: context => {
+                Console.WriteLine("Bulkhead full! Rejecting heavy report request to preserve API capacity.");
+                return Task.CompletedTask;
+            }
+        );
+    }
+
+    public async Task<IResult> ExecuteHeavyExportAsync(Func<Task<IResult>> action)
+    {
+        try 
+        {
+            return await _heavyReportBulkhead.ExecuteAsync(action);
+        }
+        catch (BulkheadRejectedException)
+        {
+            return Results.Json(new { 
+                error = "Server Busy", 
+                message = "Lab report export capacity reached. Please try again shortly." 
+            }, statusCode: 429);
+        }
+    }
+}
+```
+
+---
+
+### 15.4 Comparison Matrix: Resilience Patterns
+
+| Pattern | Primary Goal | Real-World Metaphor | Implementation Tool |
+| :--- | :--- | :--- | :--- |
+| **Bulkhead** | Isolate resource capacity into separate pools so failure in one area doesn't drown the rest. | Watertight compartments on a ship / Separate fuse boxes in a house. | Resilience4j `@Bulkhead` / Polly `Policy.BulkheadAsync` |
+| **Circuit Breaker** | Detect downstream failure and trip open to stop calling a broken service, allowing it to recover. | Electrical circuit breaker tripping during a power surge. | Resilience4j `@CircuitBreaker` / Polly `Policy.Handle<Exception>()` |
+| **Rate Limiter** | Restrict total incoming request frequency over a time window to prevent API abuse. | Bouncer at the front door checking entry speed. | Bucket4j / Spring Cloud Gateway RateLimiter / ASP.NET Core RateLimiting |
+| **Retry with Backoff** | Automatically re-attempt transient network/database errors with exponential delay. | Dialing a busy phone number again after 5s, 10s, 20s. | Resilience4j `@Retry` / Polly `Policy.Handle().WaitAndRetryAsync()` |
+
