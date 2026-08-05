@@ -50,7 +50,7 @@ public class OAuth2TokenController {
      * POST /oauth/token
      * Payload: grant_type=authorization_code&code=...&client_id=...
      */
-    @PostMapping(value = "/token", consumes = {"application/x-www-form-urlencoded", "application/json"})
+    @PostMapping(value = "/token")
     public ResponseEntity<Map<String, Object>> token(
             @RequestParam(name = "grant_type", defaultValue = "authorization_code") String grantType,
             @RequestParam(name = "code", required = false) String code,
