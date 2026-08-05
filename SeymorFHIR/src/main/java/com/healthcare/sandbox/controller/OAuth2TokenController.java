@@ -1,5 +1,7 @@
 package com.healthcare.sandbox.controller;
 
+import com.healthcare.sandbox.service.TokenStoreService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -8,10 +10,12 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/oauth")
+@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 @Slf4j
 public class OAuth2TokenController {
 
+    private final TokenStoreService tokenStoreService;
     private static final Map<String, String> AUTHORIZATION_CODES = new HashMap<>();
 
     /**
@@ -48,7 +52,6 @@ public class OAuth2TokenController {
     /**
      * SMART-on-FHIR OAuth2 Token Endpoint
      * POST /oauth/token
-     * Payload: grant_type=authorization_code&code=...&client_id=...
      */
     @PostMapping(value = "/token")
     public ResponseEntity<Map<String, Object>> token(
@@ -65,17 +68,21 @@ public class OAuth2TokenController {
         String patientId = "1"; // Default patient context
         if (authCode != null && AUTHORIZATION_CODES.containsKey(authCode)) {
             patientId = AUTHORIZATION_CODES.get(authCode);
-            AUTHORIZATION_CODES.remove(authCode); // One-time use
+            AUTHORIZATION_CODES.remove(authCode); // One-time use code
         }
 
-        String accessToken = "eySmartFhirToken_" + UUID.randomUUID().toString().replaceAll("-", "");
+        String rawToken = "eySmartFhirToken_" + UUID.randomUUID().toString().replaceAll("-", "");
+        int expiresInSeconds = 3600;
+
+        // Register token in active token store
+        tokenStoreService.registerToken(rawToken, patientId, clientId, expiresInSeconds);
 
         log.info("[SMART_OAUTH_TOKEN_ISSUED] Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
 
         Map<String, Object> tokenResponse = new LinkedHashMap<>();
-        tokenResponse.put("access_token", accessToken);
+        tokenResponse.put("access_token", rawToken);
         tokenResponse.put("token_type", "Bearer");
-        tokenResponse.put("expires_in", 3600);
+        tokenResponse.put("expires_in", expiresInSeconds);
         tokenResponse.put("scope", "launch/patient patient/*.read openid fhirUser");
         tokenResponse.put("patient", patientId);
         tokenResponse.put("need_patient_banner", true);
