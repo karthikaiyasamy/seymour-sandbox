@@ -30,7 +30,7 @@ public class OAuth2TokenController {
         String authCode = "SMART_AUTH_CODE_" + UUID.randomUUID().toString().substring(0, 8);
         AUTHORIZATION_CODES.put(authCode, launchPatientId);
 
-        log.info("🔐 [SMART AUTHORIZATION] Issued Authorization Code: {} for Patient Launch ID: {} to Client: {}", 
+        log.info("[SMART_AUTHORIZATION] Issued Authorization Code: {} for Patient Launch ID: {} to Client: {}", 
                 authCode, launchPatientId, clientId);
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -70,7 +70,7 @@ public class OAuth2TokenController {
 
         String accessToken = "eySmartFhirToken_" + UUID.randomUUID().toString().replaceAll("-", "");
 
-        log.info("🎟️ [SMART OAUTH TOKEN ISSUED] Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
+        log.info("[SMART_OAUTH_TOKEN_ISSUED] Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
 
         Map<String, Object> tokenResponse = new LinkedHashMap<>();
         tokenResponse.put("access_token", accessToken);

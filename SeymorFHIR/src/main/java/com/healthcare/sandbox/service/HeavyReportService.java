@@ -17,7 +17,7 @@ public class HeavyReportService {
      */
     @Bulkhead(name = "reportBulkhead", fallbackMethod = "fallbackLabReport")
     public Map<String, Object> generateHeavyPatientReport(String patientId) {
-        log.info("⚓ [BULKHEAD ACTIVE] Processing heavy lab report for Patient ID: {} on thread: {}", 
+        log.info("[BULKHEAD_ACTIVE] Processing heavy lab report for Patient ID: {} on thread: {}", 
                 patientId, Thread.currentThread().getName());
 
         // Simulate 4 seconds of heavy calculation / PDF generation
@@ -41,7 +41,7 @@ public class HeavyReportService {
      * Fallback method executed when Bulkhead capacity is full (BulkheadFullException).
      */
     public Map<String, Object> fallbackLabReport(String patientId, Throwable t) {
-        log.warn("⚠️ [BULKHEAD REJECTED] Bulkhead pool capacity reached for Patient ID: {}. Triggering graceful fallback. Cause: {}", 
+        log.warn("[BULKHEAD_REJECTED] Bulkhead pool capacity reached for Patient ID: {}. Triggering graceful fallback. Cause: {}", 
                 patientId, t.getMessage());
 
         Map<String, Object> fallback = new LinkedHashMap<>();

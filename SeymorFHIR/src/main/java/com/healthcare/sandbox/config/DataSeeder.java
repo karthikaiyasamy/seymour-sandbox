@@ -414,7 +414,7 @@ public class DataSeeder implements CommandLineRunner {
                 .valueQuantity(94.0).valueUnit("%").interpretation("L")
                 .effectiveDateTime(LocalDateTime.now().minusDays(2)).issued(LocalDateTime.now().minusDays(2)).build());
 
-        log.info("✅ Seeded {} patients, {} ADT events, {} medications, {} encounters, {} allergies, {} observations",
+        log.info("Seeded {} patients, {} ADT events, {} medications, {} encounters, {} allergies, {} observations",
                 patientRepo.count(), adtRepo.count(), medRepo.count(), encRepo.count(), allergyRepo.count(), observationRepo.count());
     }
 }
