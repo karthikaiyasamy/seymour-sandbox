@@ -6,6 +6,7 @@ import com.terryfox.hospital.util.PhnValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -25,13 +26,37 @@ public class RegionalSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(RegionalSyncService.class);
 
-    private static final String SEYMOUR_EHR_PATIENT_URL = "http://localhost:8090/api/fhir/Patient";
-    private static final String LANGLEY_GATEWAY_SYNC_URL = "http://localhost:8083/api/langleygeneral/sync";
+    @Value("${seymour.fhir.url:http://localhost:8090}")
+    private String seymourFhirBaseUrl;
+
+    @Value("${langley.gateway.url:http://localhost:8083}")
+    private String langleyGatewayBaseUrl;
 
     @Autowired
     private PatientRepository patientRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    /**
+     * Fetches a valid SMART-on-FHIR OAuth2 Bearer token from Seymour EHR.
+     */
+    private String fetchSeymourOAuthToken() {
+        try {
+            String tokenUrl = seymourFhirBaseUrl + "/oauth/token";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            HttpEntity<String> entity = new HttpEntity<>("grant_type=authorization_code&code=SMART_AUTH_SYNC", headers);
+            ResponseEntity<Map> response = restTemplate.exchange(tokenUrl, HttpMethod.POST, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (String) response.getBody().get("access_token");
+            }
+        } catch (Exception e) {
+            log.warn("[REGIONAL-SYNC] Failed to fetch OAuth2 token from Seymour EHR at {}: {}", seymourFhirBaseUrl, e.getMessage());
+        }
+        return null;
+    }
 
     public Map<String, Object> synchronizeRegionalNodes() {
         log.info("[REGIONAL-SYNC] Initiating multi-hospital regional sync across BC sandbox nodes...");
@@ -40,13 +65,22 @@ public class RegionalSyncService {
         int successCountSeymour = 0;
         int successCountLangley = 0;
 
+        // Fetch valid OAuth2 Bearer Token before syncing to Seymour EHR
+        String bearerToken = fetchSeymourOAuthToken();
+
+        String seymourPatientEndpoint = seymourFhirBaseUrl + "/api/fhir/Patient";
+        String langleySyncEndpoint = langleyGatewayBaseUrl + "/api/langleygeneral/sync";
+
         for (PatientEntity patient : patients) {
             String maskedPhn = PhnValidator.maskPhn(patient.getPhn());
 
-            // 1. Dispatch JSON payload to Seymour Central EHR (Port 8090)
+            // 1. Dispatch JSON payload to Seymour Central EHR (Port 8090) with Bearer token
             try {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
+                if (bearerToken != null) {
+                    headers.setBearerAuth(bearerToken);
+                }
 
                 Map<String, Object> seymourPatient = new HashMap<>();
                 seymourPatient.put("mrn", patient.getMrn());
@@ -63,14 +97,14 @@ public class RegionalSyncService {
                 seymourPatient.put("active", true);
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(seymourPatient, headers);
-                ResponseEntity<String> response = restTemplate.exchange(SEYMOUR_EHR_PATIENT_URL, HttpMethod.POST, entity, String.class);
+                ResponseEntity<String> response = restTemplate.exchange(seymourPatientEndpoint, HttpMethod.POST, entity, String.class);
 
                 if (response.getStatusCode().is2xxSuccessful()) {
                     successCountSeymour++;
-                    log.info("[REGIONAL-SYNC] Synced Patient PHN {} to Seymour Central EHR (Port 8090)", maskedPhn);
+                    log.info("[REGIONAL-SYNC] Synced Patient PHN {} to Seymour Central EHR", maskedPhn);
                 }
             } catch (Exception ex) {
-                log.warn("[REGIONAL-SYNC] Seymour Central EHR (Port 8090) response for PHN {}: {}", maskedPhn, ex.getMessage());
+                log.warn("[REGIONAL-SYNC] Seymour Central EHR response for PHN {}: {}", maskedPhn, ex.getMessage());
             }
 
             // 2. Dispatch Sync DTO payload to Langley General Gateway (C# - Port 8083)
@@ -91,14 +125,14 @@ public class RegionalSyncService {
                 langleyDto.put("postalCode", patient.getPostalCode());
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(langleyDto, headers);
-                ResponseEntity<String> response = restTemplate.exchange(LANGLEY_GATEWAY_SYNC_URL, HttpMethod.POST, entity, String.class);
+                ResponseEntity<String> response = restTemplate.exchange(langleySyncEndpoint, HttpMethod.POST, entity, String.class);
 
                 if (response.getStatusCode().is2xxSuccessful()) {
                     successCountLangley++;
-                    log.info("[REGIONAL-SYNC] Synced Patient PHN {} to Langley General Gateway (C# Port 8083)", maskedPhn);
+                    log.info("[REGIONAL-SYNC] Synced Patient PHN {} to Langley General Gateway", maskedPhn);
                 }
             } catch (Exception ex) {
-                log.warn("[REGIONAL-SYNC] Langley General Gateway (Port 8083) response for PHN {}: {}", maskedPhn, ex.getMessage());
+                log.warn("[REGIONAL-SYNC] Langley General Gateway response for PHN {}: {}", maskedPhn, ex.getMessage());
             }
         }
 

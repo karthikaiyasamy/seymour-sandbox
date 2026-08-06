@@ -92,6 +92,10 @@ public class BundleController {
                 }
             } catch (Exception e) {
                 log.error("Failed processing bundle entry [{}]: {}", resType, e.getMessage());
+                if ("transaction".equalsIgnoreCase(bundleType)) {
+                    log.error("Aborting FHIR Bundle transaction and rolling back database state.");
+                    throw new IllegalArgumentException("FHIR Bundle Transaction aborted due to entry error [" + resType + "]: " + e.getMessage(), e);
+                }
                 responseItem.put("status", "400 Bad Request");
                 responseItem.put("outcome", Map.of(
                         "resourceType", "OperationOutcome",

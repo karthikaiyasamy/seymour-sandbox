@@ -1,6 +1,6 @@
 # Healthcare Sandbox — Regional Interoperability & FHIR Workspace
 
-A local FHIR R4-shaped REST API sandbox built with **Java (Spring Boot / HAPI FHIR R4)** and **C# (.NET 10)**, designed to simulate real-world British Columbia (BC) clinical workflows and regional healthcare integration architectures.
+A healthcare interoperability sandbox demonstrating a regional HL7 v2-to-FHIR integration workflow across **Java (Spring Boot / HAPI FHIR R4)** and **C# (.NET 10)** services, with synthetic clinical data, security and resilience patterns, and explicit production hardening considerations for British Columbia (BC) health authority architectures.
 
 > ⚠️ **IMPORTANT EDUCATIONAL DISCLAIMER**:  
 > **This repository is an open-source developer learning sandbox designed exclusively for learning healthcare software engineering, HL7 v2 messaging, HAPI FHIR R4 standards, and BC identity governance (Modulus-11 PHN validation). All patient names, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial data are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
@@ -12,17 +12,17 @@ A local FHIR R4-shaped REST API sandbox built with **Java (Spring Boot / HAPI FH
 
 ## What This Demonstrates
 
-This workspace showcases a fully functional regional health interoperability sandbox, demonstrating both Java and C# enterprise backend development in a multi-stack healthcare system.
+This workspace showcases a regional health interoperability sandbox, demonstrating both Java and C# enterprise backend development in a multi-stack healthcare system.
 
 ### Key Integration Capabilities
-* **Hybrid Technology Stack:** Dual-stack integration featuring a Java Spring Boot clinical backend, a C# .NET 10 Web API registration gateway, a React/Vite front-end, Mirth Connect integration middleware, and PostgreSQL databases.
-* **FHIR R4 Resource Suite:** Native support for `Patient`, `Encounter`, `Observation` (LOINC-coded vitals/labs), `AllergyIntolerance` (SNOMED-coded allergies), `MedicationRequest`, and `DocumentReference`.
-* **Atomic FHIR Bundle Transactions:** Complete FHIR `transaction` and `batch` processing engine (`POST /api/fhir` in Java, `POST /fhir` in C#) executing atomic database operations and returning standard `transaction-response` bundles.
+* **Hybrid Technology Stack:** Dual-stack integration featuring a Java Spring Boot clinical backend (`Seymour Regional EHR`), a C# .NET 10 Web API registration gateway (`Langley General`), a specialized HAPI FHIR R4 oncology server (`Terry Fox Cancer Hospital`), and PostgreSQL databases.
+* **FHIR R4 Resource Suite & HAPI Providers:** Support for `Patient`, `Encounter`, `Observation` (LOINC-coded vitals/labs), `AllergyIntolerance` (SNOMED-coded allergies), `MedicationRequest`, `ResearchStudy`, and `ResearchSubject`.
+* **Atomic FHIR Bundle Processing:** FHIR `transaction` and `batch` processing engine (`POST /api/fhir` in Java, `POST /fhir` in C#) enforcing transactional database rollback on entry failures.
 * **HL7 v2 Message Ingestion & Parsing (Java & C#):** Automated transformation, serialization, and ingestion of **ADT** (Admit, Discharge, Transfer), **ORU** (Observation Result / Lab Results), and **VXU** (Unsolicited Vaccination Record) messages in both Java (`Hl7Service.java`) and C# (`Hl7Parser.cs` & `Hl7IngestController.cs`).
 * **BC-Standard Identity Validation (Modulus-11):** Implementation of the official British Columbia Personal Health Number (PHN) check digit validation algorithm in both Java and C# utility layers, verifying checksums and rejecting invalid cards.
 * **PII Security & Masking:** Custom utility layers that mask Patient Health Information (PHI) in terminal and file logging (e.g. `9234567897` $\rightarrow$ `923****897`) to comply with BC FOIPPA data privacy regulations.
-* **SMART on FHIR OAuth2 Simulation:** Secure app-launch authentication simulating authorization code grant flows, returning access tokens accompanied by launching patient context (`patient: "1"`).
-* **Canadian Baseline FHIR Compliance:** Native support for CA Baseline patient profiles using BC PHNs as identifiers and BC-specific system URIs (`http://sharedhealth.exchange/fhir/NamingSystem/ca-bc-patient-phn`).
+* **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing signed Bearer tokens with active launch patient context (`patient: "1"`).
+* **Resilience Patterns (Resilience4j):** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) capping slow PDF export queries to protect core API endpoints.
 
 ---
 

@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # ---------------------------------------------------------------------------
   # 1. PostgreSQL Database Service
+  # Creates both seymour_db and langley_general_db on container initialization
   # ---------------------------------------------------------------------------
   postgres-db:
     image: postgres:16-alpine
@@ -15,8 +16,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # DDL SQL Schema migrations (Barebone DDL only, no sensitive PHI)
-      - ./SeymorFHIR/src/main/resources/db/migration:/docker-entrypoint-initdb.d
+      - ./docker-init-db.sh:/docker-entrypoint-initdb.d/init-databases.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-seymour_admin} -d ${POSTGRES_DB:-seymour_db}"]
       interval: 5s
@@ -25,12 +25,11 @@ services:
 
   # ---------------------------------------------------------------------------
   # 2. Seymour Regional EHR (Java Spring Boot - Port 8090)
-  # Centralized FHIR Developer Portal & SMART-on-FHIR OAuth2 Auth Server
   # ---------------------------------------------------------------------------
   seymour-fhir:
     build:
-      context: ./SeymorFHIR
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: SeymorFHIR/Dockerfile
     container_name: seymour-fhir-server
     ports:
       - "${SEYMOUR_FHIR_PORT:-8090}:8090"
@@ -44,21 +43,21 @@ services:
 
   # ---------------------------------------------------------------------------
   # 3. Terry Fox Memorial Cancer Hospital (Java HAPI FHIR R4 Engine - Port 8085)
-  # Specialized BC Oncology, mCODE Staging, and Genomic Pathology Ingestion
   # ---------------------------------------------------------------------------
   terry-fox-memorial:
     build:
-      context: ./TerryFoxMemorial
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: TerryFoxMemorial/Dockerfile
     container_name: terry-fox-memorial-server
     ports:
       - "${TERRYFOX_ONCOLOGY_PORT:-8085}:8085"
+    environment:
+      SEYMOUR_FHIR_URL: http://seymour-fhir:8090
     depends_on:
       - seymour-fhir
 
   # ---------------------------------------------------------------------------
   # 4. Langley General Gateway (C# .NET 10 Web API - Port 8083)
-  # Legacy HL7 v2 Ingestion & Regional Registration Gateway
   # ---------------------------------------------------------------------------
   langley-general-gateway:
     build:

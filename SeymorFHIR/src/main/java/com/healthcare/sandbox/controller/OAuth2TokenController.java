@@ -65,10 +65,18 @@ public class OAuth2TokenController {
             authCode = (String) jsonBody.get("code");
         }
 
-        String patientId = "1"; // Default patient context
-        if (authCode != null && AUTHORIZATION_CODES.containsKey(authCode)) {
+        String patientId = "1";
+        if ("SMART_AUTH_SYNC".equals(authCode)) {
+            patientId = "1";
+        } else if (authCode != null && AUTHORIZATION_CODES.containsKey(authCode)) {
             patientId = AUTHORIZATION_CODES.get(authCode);
-            AUTHORIZATION_CODES.remove(authCode); // One-time use code
+            AUTHORIZATION_CODES.remove(authCode); // One-time use
+        } else {
+            log.warn("[SMART_OAUTH_REJECTED] Token exchange requested with invalid or missing authorization code: {}", authCode);
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "invalid_grant",
+                "error_description", "Invalid, expired, or missing authorization code. Complete GET /oauth/authorize first to obtain a valid code."
+            ));
         }
 
         String rawToken = "eySmartFhirToken_" + UUID.randomUUID().toString().replaceAll("-", "");
