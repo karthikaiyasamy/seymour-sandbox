@@ -44,7 +44,7 @@ public class PediatricController {
 
     @PostMapping("/vaccine")
     public ResponseEntity<Map<String, String>> submitVaccine(@RequestBody VaccineRequest request) {
-        log.info("Received pediatric vaccine submission: {}", request);
+        log.info("Processing pediatric vaccine submission for Patient ID: {}, Code: {}", request.patientId(), request.vaccineCode());
 
         return patientRepo.findById(request.patientId()).map(patient -> {
             // Clean up date format if necessary
@@ -69,7 +69,7 @@ public class PediatricController {
 
     @PostMapping("/lab")
     public ResponseEntity<Map<String, String>> submitLab(@RequestBody LabRequest request) {
-        log.info("Received pediatric lab submission: {}", request);
+        log.info("Processing pediatric lab submission for Patient ID: {}, Test: {}", request.patientId(), request.testCode());
 
         return patientRepo.findById(request.patientId()).map(patient -> {
             // Clean up date format if necessary
@@ -94,7 +94,7 @@ public class PediatricController {
 
     private void sendHl7ToMirth(String rawHl7Message) {
         try {
-            log.info("Transmitting HL7 message to Mirth Connect at [{}]:\n{}", MIRTH_URL, rawHl7Message);
+            log.info("Transmitting HL7 v2 message to Mirth Connect interface engine at [{}]", MIRTH_URL);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.TEXT_PLAIN);
 

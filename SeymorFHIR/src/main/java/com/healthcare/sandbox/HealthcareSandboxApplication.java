@@ -11,7 +11,7 @@ public class HealthcareSandboxApplication {
     public static void main(String[] args) {
         System.out.println("""
                 ╔══════════════════════════════════════════════════╗
-                ║   Healthcare Sandbox — Seymour Practice Server   ║
+                ║   Healthcare Sandbox — Seymour Regional EHR      ║
                 ║   FHIR R4 API on http://localhost:8090           ║
                 ╠══════════════════════════════════════════════════╣
                 ║  GET /api/fhir/Patient                           ║
