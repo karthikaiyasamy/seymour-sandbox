@@ -8,17 +8,17 @@ services:
     image: postgres:16-alpine
     container_name: seymour-postgres-db
     environment:
-      POSTGRES_DB: seymour_db
-      POSTGRES_USER: karthik
-      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: ${POSTGRES_DB:-seymour_db}
+      POSTGRES_USER: ${POSTGRES_USER:-seymour_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-seymour_secure_dev_password_2026}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Barebone SQL initialization script instructions (No seeded PHI/sensitive data checked into git)
+      # DDL SQL Schema migrations (Barebone DDL only, no sensitive PHI)
       - ./SeymorFHIR/src/main/resources/db/migration:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U karthik -d seymour_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-seymour_admin} -d ${POSTGRES_DB:-seymour_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,11 +33,11 @@ services:
       dockerfile: Dockerfile
     container_name: seymour-fhir-server
     ports:
-      - "8090:8090"
+      - "${SEYMOUR_FHIR_PORT:-8090}:8090"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/seymour_db
-      SPRING_DATASOURCE_USERNAME: karthik
-      SPRING_DATASOURCE_PASSWORD: postgres_password
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-seymour_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-seymour_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-seymour_secure_dev_password_2026}
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
     container_name: terry-fox-memorial-server
     ports:
-      - "8085:8085"
+      - "${TERRYFOX_ONCOLOGY_PORT:-8085}:8085"
     depends_on:
       - seymour-fhir
 
@@ -66,9 +66,9 @@ services:
       dockerfile: Dockerfile
     container_name: langley-general-gateway
     ports:
-      - "8083:8083"
+      - "${LANGLEY_GATEWAY_PORT:-8083}:8083"
     environment:
-      ConnectionStrings__DefaultConnection: Host=postgres-db;Database=langley_general_db;Username=karthik;Password=postgres_password
+      ConnectionStrings__DefaultConnection: Host=postgres-db;Database=langley_general_db;Username=${POSTGRES_USER:-seymour_admin};Password=${POSTGRES_PASSWORD:-seymour_secure_dev_password_2026}
     depends_on:
       postgres-db:
         condition: service_healthy
