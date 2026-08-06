@@ -35,7 +35,23 @@ This workspace showcases a fully functional regional health interoperability san
 
 ## Quick Start
 
-### 1. Build and Run Java Backends
+### 🐳 Option A: One-Command Launch via Docker Compose (Recommended)
+Spin up the entire regional health infrastructure (PostgreSQL database, Seymour FHIR Server, Terry Fox Cancer Center, and Langley General C# Gateway) using Docker Compose:
+
+```bash
+# 1. Package Java modules
+mvn clean package -DskipTests
+
+# 2. Spin up all containerized microservices and database
+docker-compose up --build
+```
+> **🌐 Centralized API Developer Portal:** Once running, navigate your browser to **`http://localhost:8090/swagger-ui.html`** to explore and test all APIs across the regional health network.
+
+---
+
+### 💻 Option B: Manual Local Terminal Launch
+
+#### 1. Build and Run Java Backends
 ```bash
 # Build all Java modules
 mvn clean package -DskipTests
@@ -50,7 +66,7 @@ cd TerryFoxMemorial && mvn spring-boot:run
 cd LangleyChildrensHospital/langley-backend && mvn spring-boot:run
 ```
 
-### 2. Build and Run C# Gateway
+#### 2. Build and Run C# Gateway
 ```bash
 # Run Langley General Gateway (C# - Port 8083)
 cd LangleyGeneralGateway
@@ -58,6 +74,17 @@ dotnet run
 ```
 
 ---
+
+## 🔒 Security & Database Seeding Guidelines
+
+To maintain privacy and follow secure open-source practices:
+* **No Pre-Populated Seed Data in Git:** Source control contains **barebone SQL DDL schema files only** ([`V1__create_oauth_tables.sql`](file:///Users/karthik/dev/seymour/seymour-sandbox/SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). Real/sensitive clinical data or pre-populated token credentials are never checked into git.
+* **Custom Dataset Seeding Instructions:** To populate custom synthetic clinical test records or OAuth test credentials locally:
+  ```sql
+  -- Seed pre-authorized test OAuth code locally in PostgreSQL:
+  INSERT INTO oauth_authorization_codes (code, client_id, patient_id, redirect_uri, expires_at)
+  VALUES ('SMART_TEST_CODE_901', 'seymour_smart_app', '1', 'http://localhost:3000/callback', NOW() + INTERVAL '1 hour');
+  ```
 
 ## API Summary Across Modules
 

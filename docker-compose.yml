@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # ---------------------------------------------------------------------------
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: seymour-postgres-db
+    environment:
+      POSTGRES_DB: seymour_db
+      POSTGRES_USER: karthik
+      POSTGRES_PASSWORD: postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Barebone SQL initialization script instructions (No seeded PHI/sensitive data checked into git)
+      - ./SeymorFHIR/src/main/resources/db/migration:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karthik -d seymour_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 2. Seymour Regional EHR (Java Spring Boot - Port 8090)
+  # Centralized FHIR Developer Portal & SMART-on-FHIR OAuth2 Auth Server
+  # ---------------------------------------------------------------------------
+  seymour-fhir:
+    build:
+      context: ./SeymorFHIR
+      dockerfile: Dockerfile
+    container_name: seymour-fhir-server
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/seymour_db
+      SPRING_DATASOURCE_USERNAME: karthik
+      SPRING_DATASOURCE_PASSWORD: postgres_password
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 3. Terry Fox Memorial Cancer Hospital (Java HAPI FHIR R4 Engine - Port 8085)
+  # Specialized BC Oncology, mCODE Staging, and Genomic Pathology Ingestion
+  # ---------------------------------------------------------------------------
+  terry-fox-memorial:
+    build:
+      context: ./TerryFoxMemorial
+      dockerfile: Dockerfile
+    container_name: terry-fox-memorial-server
+    ports:
+      - "8085:8085"
+    depends_on:
+      - seymour-fhir
+
+  # ---------------------------------------------------------------------------
+  # 4. Langley General Gateway (C# .NET 10 Web API - Port 8083)
+  # Legacy HL7 v2 Ingestion & Regional Registration Gateway
+  # ---------------------------------------------------------------------------
+  langley-general-gateway:
+    build:
+      context: ./LangleyGeneralGateway
+      dockerfile: Dockerfile
+    container_name: langley-general-gateway
+    ports:
+      - "8083:8083"
+    environment:
+      ConnectionStrings__DefaultConnection: Host=postgres-db;Database=langley_general_db;Username=karthik;Password=postgres_password
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
