@@ -107,6 +107,9 @@ public class BundleController {
                 responseEntries.add(Map.of("response", responseItem));
             }
         } catch (IllegalArgumentException e) {
+            try {
+                org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            } catch (Exception ignored) {}
             return ResponseEntity.badRequest().body(Map.of(
                     "resourceType", "OperationOutcome",
                     "issue", List.of(Map.of(

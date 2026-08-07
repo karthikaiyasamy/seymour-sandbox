@@ -21,7 +21,7 @@ This workspace showcases a regional health interoperability sandbox, demonstrati
 * **HL7 v2 Message Ingestion & Parsing (Java & C#):** Automated transformation, serialization, and ingestion of **ADT** (Admit, Discharge, Transfer), **ORU** (Observation Result / Lab Results), and **VXU** (Unsolicited Vaccination Record) messages in both Java (`Hl7Service.java`) and C# (`Hl7Parser.cs` & `Hl7IngestController.cs`).
 * **BC-Standard Identity Validation (Modulus-11):** Implementation of the official British Columbia Personal Health Number (PHN) check digit validation algorithm in both Java and C# utility layers, verifying checksums and rejecting invalid cards.
 * **PII Security & Masking:** Custom utility layers that mask Patient Health Information (PHI) in terminal and file logging (e.g. `9234567897` $\rightarrow$ `923****897`) to comply with BC FOIPPA data privacy regulations.
-* **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing signed Bearer tokens with active launch patient context (`patient: "1"`).
+* **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing opaque Bearer tokens with active launch patient context (`patient: "1"`).
 * **Resilience Patterns (Resilience4j):** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) capping slow PDF export queries to protect core API endpoints.
 
 ---
@@ -86,7 +86,7 @@ To maintain privacy and follow secure open-source practices:
 
 | Module | Stack | Port | Endpoint Focus |
 | :--- | :--- | :--- | :--- |
-| **SeymorFHIR** | Java / Spring Boot | `8090` | FHIR R4 APIs (`/api/fhir/Patient`, `Observation`, `AllergyIntolerance`, `Encounter`, `MedicationRequest`), FHIR Bundle Transactions (`POST /api/fhir`), SMART on FHIR OAuth2 (`/oauth2/authorize`, `/oauth2/token`). |
+| **SeymorFHIR** | Java / Spring Boot | `8090` | FHIR R4 APIs (`/api/fhir/Patient`, `Observation`, `AllergyIntolerance`, `Encounter`, `MedicationRequest`), FHIR Bundle Transactions (`POST /api/fhir`), SMART on FHIR OAuth2 (`/oauth/authorize`, `/oauth/token`). |
 | **TerryFoxMemorial** | Java / HAPI FHIR R4 | `8085` | Native HAPI FHIR R4 Engine (`/fhir/Patient`, `Condition`, `ResearchStudy`, `ResearchSubject`, `DiagnosticReport`), mCODE Oncology TNM Staging, Pathology/Genomic feeds (`POST /api/terryfox/hl7`), Capability Statement (`/fhir/metadata`). |
 | **LangleyGeneralGateway** | C# / .NET 10 | `8083` | C# FHIR APIs (`/fhir/Patient`, `/fhir/Observation`), C# FHIR Bundle Transactions (`POST /fhir`), Native HL7 v2 Ingest (`POST /api/langleygeneral/hl7`), Patient Sync (`POST /api/langleygeneral/sync`). |
 | **langley-backend** | Java / Spring Boot | `8081` | Pediatric Sync Webhooks (`/api/langley/pediatric/sync`, `/api/langley/pediatric/allergy-sync`), Patient Roster & Labs (`/api/patients`). |

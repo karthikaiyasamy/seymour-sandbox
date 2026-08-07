@@ -64,7 +64,7 @@ public class WebhookController {
     // POST /api/langley/pediatric/sync — Direct push synchronization from Mirth
     @PostMapping("/api/langley/pediatric/sync")
     public ResponseEntity<Map<String, String>> syncPediatricData(@RequestBody Map<String, Object> payload) {
-        log.info("Received direct sync payload from Mirth: {}", payload);
+        log.info("Received direct sync notification from Mirth for MRN: {}, dataType: {}", payload.get("patientMrn"), payload.get("dataType"));
         
         try {
             String mrn = (String) payload.get("patientMrn");
@@ -433,7 +433,7 @@ public class WebhookController {
     // POST /api/langley/pediatric/allergy-sync — Sync pediatric allergy record
     @PostMapping("/api/langley/pediatric/allergy-sync")
     public ResponseEntity<Map<String, String>> syncAllergyData(@RequestBody Map<String, Object> payload) {
-        log.info("Received pediatric allergy sync payload: {}", payload);
+        log.info("Received pediatric allergy sync notification for MRN: {}", payload.get("patientMrn"));
         try {
             String mrn = (String) payload.get("patientMrn");
             if (mrn == null || mrn.isEmpty()) {

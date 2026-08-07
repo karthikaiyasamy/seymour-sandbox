@@ -94,4 +94,39 @@ class BundleControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resourceType", is("OperationOutcome")));
     }
+
+    @Test
+    @DisplayName("POST /api/fhir - Should abort transaction and return FHIR OperationOutcome on entry error")
+    void testTransactionBundleEntryErrorRejection() throws Exception {
+        when(patientRepo.save(any(Patient.class))).thenThrow(new IllegalArgumentException("Invalid British Columbia PHN format or checksum."));
+
+        String bundleJson = """
+            {
+              "resourceType": "Bundle",
+              "type": "transaction",
+              "entry": [
+                {
+                  "resource": {
+                    "resourceType": "Patient",
+                    "mrn": "MRN-ERR",
+                    "firstName": "Invalid",
+                    "lastName": "PHN",
+                    "healthCardNumber": "9234567899"
+                  },
+                  "request": {
+                    "method": "POST",
+                    "url": "Patient"
+                  }
+                }
+              ]
+            }
+            """;
+
+        mockMvc.perform(post("/api/fhir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bundleJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resourceType", is("OperationOutcome")))
+                .andExpect(jsonPath("$.issue[0].diagnostics", containsString("FHIR Bundle Transaction aborted due to entry error")));
+    }
 }
