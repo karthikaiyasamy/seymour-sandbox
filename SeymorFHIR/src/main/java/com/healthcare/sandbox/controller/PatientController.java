@@ -234,8 +234,7 @@ public class PatientController {
             patient.setHealthCardNumber(normalizedPhn);
         }
 
-        log.info("Registering new patient with MRN: {} and PHN: {}", 
-                patient.getMrn(), 
+        log.info("Registering new patient record with PHN: {}", 
                 PhnValidator.maskPHN(patient.getHealthCardNumber()));
 
         Patient saved = patientRepo.save(patient);

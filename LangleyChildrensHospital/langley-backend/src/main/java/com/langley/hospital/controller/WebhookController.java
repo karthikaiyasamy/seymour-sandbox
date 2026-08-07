@@ -64,7 +64,7 @@ public class WebhookController {
     // POST /api/langley/pediatric/sync — Direct push synchronization from Mirth
     @PostMapping("/api/langley/pediatric/sync")
     public ResponseEntity<Map<String, String>> syncPediatricData(@RequestBody Map<String, Object> payload) {
-        log.info("Received direct sync notification from Mirth for MRN: {}, dataType: {}", payload.get("patientMrn"), payload.get("dataType"));
+        log.info("Received direct sync notification from Mirth for dataType: {}", payload.get("dataType"));
         
         try {
             String mrn = (String) payload.get("patientMrn");
@@ -74,7 +74,7 @@ public class WebhookController {
 
             Optional<LangleyPatient> patientOpt = patientRepo.findByMrn(mrn);
             if (patientOpt.isEmpty()) {
-                log.warn("Patient with MRN {} not found. Direct sync aborted.", mrn);
+                log.warn("Patient record not found. Direct sync aborted.");
                 return ResponseEntity.status(404).body(Map.of("status", "error", "message", "Patient MRN not found"));
             }
             LangleyPatient patient = patientOpt.get();
@@ -99,7 +99,7 @@ public class WebhookController {
                         .build();
 
                 vaccineRepo.save(vaccine);
-                log.info("Direct Sync: Saved vaccination record: {} for Patient MRN: {}", vaccineName, mrn);
+                log.info("Direct Sync: Saved vaccination record: {}", vaccineName);
 
             } else if ("LAB_TEST".equalsIgnoreCase(dataType)) {
                 String testCode = (String) payload.get("testCode");
@@ -122,7 +122,7 @@ public class WebhookController {
                         .build();
 
                 labRepo.save(lab);
-                log.info("Direct Sync: Saved lab result: {} for Patient MRN: {}", testName, mrn);
+                log.info("Direct Sync: Saved lab result: {}", testName);
             } else {
                 return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Unknown dataType " + dataType));
             }
@@ -141,8 +141,8 @@ public class WebhookController {
     // POST /api/langley/notify — Receive event notification from Mirth
     @PostMapping("/api/langley/notify")
     public ResponseEntity<Map<String, String>> handleMirthNotification(@RequestBody MirthNotification notification) {
-        log.info("Received Mirth notification: messageId={}, mrn={}, type={}", 
-                notification.messageId(), notification.patientMrn(), notification.dataType());
+        log.info("Received Mirth notification: messageId={}, type={}", 
+                notification.messageId(), notification.dataType());
 
         // Schedule the 10-second deferred retrieval task
         scheduler.schedule(() -> {
@@ -190,7 +190,7 @@ public class WebhookController {
 
             Optional<LangleyPatient> patientOpt = patientRepo.findByMrn(mrn);
             if (patientOpt.isEmpty()) {
-                log.warn("Patient with MRN {} not found in Langley. Cannot associate data.", mrn);
+                log.warn("Patient record not found in Langley. Cannot associate data.");
                 return;
             }
             LangleyPatient patient = patientOpt.get();
@@ -214,7 +214,7 @@ public class WebhookController {
                         .build();
 
                 vaccineRepo.save(vaccine);
-                log.info("Successfully saved vaccination record: {} for Patient MRN: {}", vaccineName, mrn);
+                log.info("Successfully saved vaccination record: {}", vaccineName);
 
             } else if ("LAB_TEST".equalsIgnoreCase(dataType)) {
                 String testCode = root.path("testCode").asText("");
@@ -237,7 +237,7 @@ public class WebhookController {
                         .build();
 
                 labRepo.save(lab);
-                log.info("Successfully saved lab result record: {} for Patient MRN: {}", testName, mrn);
+                log.info("Successfully saved lab result record: {}", testName);
             } else {
                 log.warn("Unknown data type received from Mirth: {}", dataType);
             }
@@ -433,7 +433,7 @@ public class WebhookController {
     // POST /api/langley/pediatric/allergy-sync — Sync pediatric allergy record
     @PostMapping("/api/langley/pediatric/allergy-sync")
     public ResponseEntity<Map<String, String>> syncAllergyData(@RequestBody Map<String, Object> payload) {
-        log.info("Received pediatric allergy sync notification for MRN: {}", payload.get("patientMrn"));
+        log.info("Received pediatric allergy sync notification");
         try {
             String mrn = (String) payload.get("patientMrn");
             if (mrn == null || mrn.isEmpty()) {
@@ -456,7 +456,7 @@ public class WebhookController {
                     .build();
 
             allergyRepo.save(allergy);
-            log.info("Saved synced allergy record: {} for Patient MRN: {}", allergy.getAllergyDisplay(), mrn);
+            log.info("Saved synced allergy record: {}", allergy.getAllergyDisplay());
 
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "status", "success",
