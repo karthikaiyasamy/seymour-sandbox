@@ -99,4 +99,39 @@ class Hl7ServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> hl7Service.parseHl7(hl7Text));
         assertTrue(ex.getMessage().contains("Duplicate MSH-10 Message Control ID rejected"));
     }
+
+    @Test
+    @DisplayName("Should reject duplicate SHA-256 payload hash idempotently")
+    void testHl7Sha256DuplicateRejection() {
+        String hl7Text = "MSH|^~\\&|SANDBOX_EHR|VGH|REC_APP|REC_FAC|20260802103000||ADT^A01^ADT_A01|MSG-9002|P|2.4\nPID|1||MRN-102^^^MRN||Doe^Jane";
+        String hash = hl7Service.calculateSha256(hl7Text);
+
+        when(auditLogRepo.findByPayloadHash(hash))
+                .thenReturn(Optional.of(Hl7AuditLog.builder().payloadHash(hash).correlationId("corr-999").status("DELIVERED").build()));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> hl7Service.parseHl7(hl7Text));
+        assertTrue(ex.getMessage().contains("Duplicate HL7 payload rejected"));
+    }
+
+    @Test
+    @DisplayName("Should flag PENDING_REVIEW and abort patient creation on ambiguous demographic match")
+    void testHl7AmbiguousMatchConflictAbort() {
+        Patient existingPatient = Patient.builder()
+                .id(1L)
+                .mrn("MRN-ORIGINAL")
+                .firstName("Alex")
+                .lastName("Smith")
+                .dateOfBirth(LocalDate.of(1988, 4, 12))
+                .active(true)
+                .build();
+
+        when(patientRepo.findByActiveTrue()).thenReturn(java.util.List.of(existingPatient));
+
+        String hl7Text = "MSH|^~\\&|VGH|VANCOUVER_GENERAL|SEYMOUR|CENTRAL|20260806190500||ADT^A08^ADT_A08|MSG-CONF-01|P|2.4\n" +
+                "PID|1||MRN-CONFLICT-99^^^MRN||Smith^Alex||19951020|M|||123 Main St^^Vancouver^BC^V5K 1A1^CA||604-555-0199||||||9000000071";
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> hl7Service.parseHl7(hl7Text));
+        assertTrue(ex.getMessage().contains("HL7 Identity Conflict Detected"));
+        verify(matchReviewRepo, times(1)).save(any(PatientMatchReview.class));
+    }
 }

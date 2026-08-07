@@ -32,15 +32,21 @@ This script provides an exact, step-by-step 5-minute technical demo script desig
 ---
 
 ### Step 2: HL7 v2 Processing & MSH-10 Idempotency (1:00 - 2:30)
-1. **Trigger ADT^A01 Admission Message:**
+1. **Request Bearer Authorization Token:**
    ```bash
-   curl -X POST http://localhost:8090/api/fhir/Encounter/adt \
+   curl -X POST http://localhost:8090/oauth/token \
+     -d "grant_type=authorization_code&code=SMART_AUTH_SYNC&client_id=seymour_smart_app"
+   ```
+2. **Trigger ADT^A01 Admission Feed via Endpoint:**
+   ```bash
+   curl -X POST http://localhost:8090/api/fhir/Encounter/adt/hl7 \
+     -H "Authorization: Bearer <access_token>" \
      -H "Content-Type: text/plain" \
      -d "MSH|^~\&|VGH|VANCOUVER_GENERAL|SEYMOUR|CENTRAL|20260806190000||ADT^A01^ADT_A01|MSG-900881|P|2.4
    PID|1||MRN-901881^^^MRN||Smith^Alexander||19880412|M|||123 Main St^^Vancouver^BC^V5K 1A1^CA||604-555-0199||||||9000000071
    PV1|1|I|3 East^302^B||||Dr. Sarah Park|||||||||||VN-881"
    ```
-2. **Demonstrate Idempotency Protection:**
+3. **Demonstrate MSH-10 Idempotency Protection:**
    Re-send the *exact same payload* immediately.
    - **Expected Outcome:** Rejection error (`Duplicate MSH-10 Message Control ID rejected: MSG-900881`).
    - **Talking Point:** *"In real hospital interfaces, network retries happen frequently. Storing MSH-10 control IDs and SHA-256 payload hashes prevents duplicate patient creation."*
@@ -49,16 +55,27 @@ This script provides an exact, step-by-step 5-minute technical demo script desig
 
 ### Step 3: Patient Identity Conflict Resolution (2:30 - 3:30)
 1. **Simulate Ambiguous Patient Match:**
-   Send an inbound HL7 message with a slightly misspelled name and partial DOB match:
+   Send an inbound HL7 message with a different inbound MRN (`MRN-CONFLICT-99`) but matching name (`Smith^Alex`) and different DOB:
    ```bash
-   curl -X POST http://localhost:8090/api/fhir/Encounter/adt \
+   curl -X POST http://localhost:8090/api/fhir/Encounter/adt/hl7 \
+     -H "Authorization: Bearer <access_token>" \
      -H "Content-Type: text/plain" \
-     -d "MSH|^~\&|VGH|VANCOUVER_GENERAL|SEYMOUR|CENTRAL|20260806190500||ADT^A08^ADT_A08|MSG-900882|P|2.4
-   PID|1||MRN-901881^^^MRN||Smithe^Alex||19880412|M|||123 Main St^^Vancouver^BC^V5K 1A1^CA||604-555-0199||||||9000000071
+     -d "MSH|^~\&|VGH|VANCOUVER_GENERAL|SEYMOUR|CENTRAL|20260806190500||ADT^A08^ADT_A08|MSG-CONF-01|P|2.4
+   PID|1||MRN-CONFLICT-99^^^MRN||Smith^Alex||19951020|M|||123 Main St^^Vancouver^BC^V5K 1A1^CA||604-555-0199||||||9000000071
    PV1|1|O|Outpatient Clinic"
    ```
-2. **Show Conflict Queue (`PENDING_REVIEW`):**
-   - Explain how Seymour calculates a match score (0.0 to 1.0). Matches between 0.35 and 0.85 trigger a `PENDING_REVIEW` record rather than silently overwriting patient history.
+   - **Expected Outcome:** Patient creation halted (`HL7 Identity Conflict Detected (Match Score: 0.6). Patient creation halted. Record queued for manual PENDING_REVIEW.`).
+2. **Inspect & Resolve Conflict Queue via API:**
+   Query the pending review queue:
+   ```bash
+   curl -X GET http://localhost:8090/api/fhir/Patient/match-reviews \
+     -H "Authorization: Bearer <access_token>"
+   ```
+   Approve the record manually:
+   ```bash
+   curl -X POST http://localhost:8090/api/fhir/Patient/match-reviews/1/approve \
+     -H "Authorization: Bearer <access_token>"
+   ```
 
 ---
 

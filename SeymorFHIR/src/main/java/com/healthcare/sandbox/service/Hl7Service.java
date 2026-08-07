@@ -100,14 +100,6 @@ public class Hl7Service {
         String correlationId = UUID.randomUUID().toString();
         String payloadHash = calculateSha256(hl7Text);
 
-        // Check for duplicate payload hash
-        Optional<Hl7AuditLog> existingHashLog = auditLogRepo.findByPayloadHash(payloadHash);
-        if (existingHashLog.isPresent()) {
-            Hl7AuditLog prevLog = existingHashLog.get();
-            log.warn("HL7 Idempotency Rejection: Duplicate payload received. Original Correlation ID: {}", prevLog.getCorrelationId());
-            throw new IllegalArgumentException("Duplicate HL7 payload rejected. Previously processed under Correlation ID: " + prevLog.getCorrelationId());
-        }
-
         String[] lines = hl7Text.split("[\\r\\n]+");
         
         String messageControlId = "MSG-" + System.currentTimeMillis();
@@ -139,11 +131,19 @@ public class Hl7Service {
             }
         }
 
-        // MSH-10 Message Control ID Idempotency Check
+        // 1. Check MSH-10 Control ID Idempotency FIRST
         Optional<Hl7AuditLog> existingControlLog = auditLogRepo.findByMessageControlId(messageControlId);
         if (existingControlLog.isPresent()) {
             log.warn("HL7 Idempotency Rejection: MSH-10 Message Control ID [{}] already processed.", messageControlId);
             throw new IllegalArgumentException("Duplicate MSH-10 Message Control ID rejected: " + messageControlId);
+        }
+
+        // 2. Check Payload SHA-256 Hash Idempotency SECOND
+        Optional<Hl7AuditLog> existingHashLog = auditLogRepo.findByPayloadHash(payloadHash);
+        if (existingHashLog.isPresent()) {
+            Hl7AuditLog prevLog = existingHashLog.get();
+            log.warn("HL7 Idempotency Rejection: Duplicate payload received. Original Correlation ID: {}", prevLog.getCorrelationId());
+            throw new IllegalArgumentException("Duplicate HL7 payload rejected. Previously processed under Correlation ID: " + prevLog.getCorrelationId());
         }
 
         // Create Initial Audit Log (RECEIVED)
@@ -196,60 +196,60 @@ public class Hl7Service {
                             lastName = parseSubfield(fields[5], 0);
                             firstName = parseSubfield(fields[5], 1);
                         }
-                        if (fields.length > 7) {
+                        if (fields.length > 7 && !fields[7].trim().isEmpty()) {
                             dob = parseDate(fields[7]);
                         }
-                    if (fields.length > 8) {
-                        String g = fields[8];
-                        if ("M".equalsIgnoreCase(g)) gender = "male";
-                        else if ("F".equalsIgnoreCase(g)) gender = "female";
-                        else if ("O".equalsIgnoreCase(g)) gender = "other";
-                    }
-                    if (fields.length > 11) {
-                        addressLine = parseSubfield(fields[11], 0);
-                        city = parseSubfield(fields[11], 2);
-                        province = parseSubfield(fields[11], 3);
-                        postalCode = parseSubfield(fields[11], 4);
-                    }
-                    if (fields.length > 13) {
-                        phone = fields[13];
-                    }
-                    if (fields.length > 19) {
-                        healthCardNumber = fields[19];
-                    }
-                    break;
-
-                case "PV1":
-                    if (fields.length > 2) {
-                        String pc = fields[2];
-                        if ("I".equalsIgnoreCase(pc)) patientClass = "INPATIENT";
-                        else if ("E".equalsIgnoreCase(pc)) patientClass = "EMERGENCY";
-                        else if ("O".equalsIgnoreCase(pc)) patientClass = "OUTPATIENT";
-                    }
-                    if (fields.length > 3) {
-                        ward = parseSubfield(fields[3], 0);
-                        room = parseSubfield(fields[3], 1);
-                        bed = parseSubfield(fields[3], 2);
-                        facility = parseSubfield(fields[3], 3);
-                    }
-                    if (fields.length > 7) {
-                        attendingPhysician = parseSubfield(fields[7], 0);
-                    }
-                    if (fields.length > 19) {
-                        visitNumber = fields[19];
-                    }
-                    break;
-
-                case "DG1":
-                    if (fields.length > 5) {
-                        admittingDiagnosis = parseSubfield(fields[5], 1);
-                        if (admittingDiagnosis == null || admittingDiagnosis.isEmpty()) {
-                            admittingDiagnosis = parseSubfield(fields[5], 0);
+                        if (fields.length > 8) {
+                            String g = fields[8];
+                            if ("M".equalsIgnoreCase(g)) gender = "male";
+                            else if ("F".equalsIgnoreCase(g)) gender = "female";
+                            else if ("O".equalsIgnoreCase(g)) gender = "other";
                         }
-                    }
-                    break;
+                        if (fields.length > 11) {
+                            addressLine = parseSubfield(fields[11], 0);
+                            city = parseSubfield(fields[11], 2);
+                            province = parseSubfield(fields[11], 3);
+                            postalCode = parseSubfield(fields[11], 4);
+                        }
+                        if (fields.length > 13) {
+                            phone = fields[13];
+                        }
+                        if (fields.length > 19) {
+                            healthCardNumber = fields[19];
+                        }
+                        break;
+
+                    case "PV1":
+                        if (fields.length > 2) {
+                            String pc = fields[2];
+                            if ("I".equalsIgnoreCase(pc)) patientClass = "INPATIENT";
+                            else if ("E".equalsIgnoreCase(pc)) patientClass = "EMERGENCY";
+                            else if ("O".equalsIgnoreCase(pc)) patientClass = "OUTPATIENT";
+                        }
+                        if (fields.length > 3) {
+                            ward = parseSubfield(fields[3], 0);
+                            room = parseSubfield(fields[3], 1);
+                            bed = parseSubfield(fields[3], 2);
+                            facility = parseSubfield(fields[3], 3);
+                        }
+                        if (fields.length > 7) {
+                            attendingPhysician = parseSubfield(fields[7], 0);
+                        }
+                        if (fields.length > 19) {
+                            visitNumber = fields[19];
+                        }
+                        break;
+
+                    case "DG1":
+                        if (fields.length > 5) {
+                            admittingDiagnosis = parseSubfield(fields[5], 1);
+                            if (admittingDiagnosis == null || admittingDiagnosis.isEmpty()) {
+                                admittingDiagnosis = parseSubfield(fields[5], 0);
+                            }
+                        }
+                        break;
+                }
             }
-        }
 
         if (mrn == null || mrn.isEmpty()) {
             throw new IllegalArgumentException("HL7 message is missing Patient MRN (PID-3)");
@@ -270,15 +270,15 @@ public class Hl7Service {
             double maxMatchScore = 0.0;
             for (Patient p : patientRepo.findByActiveTrue()) {
                 double score = 0.0;
-                if (p.getLastName() != null && p.getLastName().equalsIgnoreCase(lastName)) score += 0.35;
-                if (p.getFirstName() != null && p.getFirstName().equalsIgnoreCase(firstName)) score += 0.25;
-                if (p.getDateOfBirth() != null && p.getDateOfBirth().equals(dob)) score += 0.40;
+                if (p.getLastName() != null && p.getLastName().trim().equalsIgnoreCase(lastName.trim())) score += 0.35;
+                if (p.getFirstName() != null && p.getFirstName().trim().equalsIgnoreCase(firstName.trim())) score += 0.25;
+                if (p.getDateOfBirth() != null && dob != null && p.getDateOfBirth().equals(dob)) score += 0.40;
                 if (score > maxMatchScore) maxMatchScore = score;
             }
 
             // Ambiguous Match Threshold (Conflict Resolution Trigger)
             if (maxMatchScore >= 0.35 && maxMatchScore < 0.85) {
-                log.warn("HL7 Identity Conflict Detected (Match Score: {}). Flagging PENDING_REVIEW record for human review.", maxMatchScore);
+                log.warn("HL7 Identity Conflict Detected (Match Score: {}). Flagging PENDING_REVIEW record and aborting patient creation.", maxMatchScore);
                 matchReviewRepo.save(PatientMatchReview.builder()
                         .inboundMrn(mrn)
                         .inboundPhn(healthCardNumber)
@@ -289,6 +289,8 @@ public class Hl7Service {
                         .status("PENDING_REVIEW")
                         .createdAt(LocalDateTime.now())
                         .build());
+                
+                throw new IllegalArgumentException("HL7 Identity Conflict Detected (Match Score: " + maxMatchScore + "). Patient creation halted. Record queued for manual PENDING_REVIEW.");
             }
 
             log.info("HL7 Parser: Registering new patient record from HL7 ADT message");
@@ -308,8 +310,7 @@ public class Hl7Service {
                     .build());
         }
 
-            auditLog.setStatus("DELIVERED");
-            auditLog.setProcessedAt(LocalDateTime.now());
+            auditLog.setStatus("TRANSFORMED");
             auditLogRepo.save(auditLog);
 
             return AdtEvent.builder()
