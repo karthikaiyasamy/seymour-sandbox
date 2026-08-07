@@ -66,11 +66,11 @@ public class WebhookService {
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
 
-            log.info("Firing ADT Webhook to [POST {}] with payload: {}", webhookUrl, payload);
+            log.info("Firing ADT Webhook to [POST {}] for EventType: {}", webhookUrl, savedEvent.getEventType());
             
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             
-            log.info("Webhook Response [Code: {}] Body: {}", response.statusCode(), response.body());
+            log.info("Webhook Response [Code: {}] from [{}]", response.statusCode(), webhookUrl);
             
         } catch (Exception e) {
             log.error("Failed to execute Webhook call to [{}]. Saved event was not impacted. Exception message: {}", 

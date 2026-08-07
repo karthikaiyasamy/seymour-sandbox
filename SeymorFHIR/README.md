@@ -23,8 +23,8 @@ The Seymour FHIR Server acts as the primary simulated Electronic Health Record (
 * `/api/fhir/DocumentReference` - Clinical notes and summaries.
 
 ### 2. SMART on FHIR OAuth2
-* `GET /oauth2/authorize` - Simulates the OAuth2 login redirect.
-* `POST /oauth2/token` - Simulates token exchange, returning an access token alongside active patient context (e.g. `patient: "1"`).
+* `GET /oauth/authorize` - Simulates the OAuth2 login redirect.
+* `POST /oauth/token` - Simulates token exchange, returning an access token alongside active patient context (e.g. `patient: "1"`).
 
 ### 3. ADT Console UI
 * Access via `http://localhost:8090/admin/adt-console.html` when running. Allows manually triggering simulated HL7 v2 ADT, ORU, or VXU messages.
