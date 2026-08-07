@@ -67,6 +67,7 @@ public class OAuth2TokenController {
 
         String patientId = "1";
         if ("SMART_AUTH_SYNC".equals(authCode)) {
+            // Internal sandbox integration bootstrap token for automated cross-hospital node synchronization
             patientId = "1";
         } else if (authCode != null && AUTHORIZATION_CODES.containsKey(authCode)) {
             patientId = AUTHORIZATION_CODES.get(authCode);

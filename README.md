@@ -74,7 +74,7 @@ dotnet run
 ## 🔒 Security & Database Seeding Guidelines
 
 To maintain privacy and follow secure open-source practices:
-* **No Pre-Populated Seed Data in Git:** Source control contains **barebone SQL DDL schema files only** ([`V1__create_oauth_tables.sql`](file:///Users/karthik/dev/seymour/seymour-sandbox/SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). Real/sensitive clinical data or pre-populated token credentials are never checked into git.
+* **Synthetic Data Governance:** Source control contains **version-controlled 100% synthetic seed data** and barebone SQL DDL schema files ([`V1__create_oauth_tables.sql`](file:///Users/karthik/dev/seymour/seymour-sandbox/SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). No real Personal Health Information (PHI) or production credentials/secrets are ever used or committed.
 * **Custom Dataset Seeding Instructions:** To populate custom synthetic clinical test records or OAuth test credentials locally:
   ```sql
   -- Seed pre-authorized test OAuth code locally in PostgreSQL:

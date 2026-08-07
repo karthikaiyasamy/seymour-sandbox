@@ -389,8 +389,8 @@ public class WebhookController {
             }
 
             patientRepo.save(patient);
-            log.info("Successfully synced patient: {} {} (MRN: {}) with PHN: {} - Admitted: {}", 
-                    firstName, lastName, mrn, PhnValidator.maskPHN(patient.getHealthCardNumber()), patient.getAdmitted());
+            log.info("Successfully synced patient record with PHN: {} - Admitted: {}", 
+                    PhnValidator.maskPHN(patient.getHealthCardNumber()), patient.getAdmitted());
 
             return ResponseEntity.ok(Map.of(
                     "status", "success", 

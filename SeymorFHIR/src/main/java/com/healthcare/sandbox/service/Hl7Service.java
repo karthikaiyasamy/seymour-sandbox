@@ -217,7 +217,7 @@ public class Hl7Service {
         final String finalHealthCardNumber = healthCardNumber;
 
         Patient patient = patientRepo.findByMrn(mrn).orElseGet(() -> {
-            log.info("HL7 Parser: MRN {} not found. Registering new patient: {} {}", finalMrn, finalFirstName, finalLastName);
+            log.info("HL7 Parser: Registering new patient record from HL7 ADT message");
             return patientRepo.save(Patient.builder()
                     .mrn(finalMrn)
                     .firstName(finalFirstName)
