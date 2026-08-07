@@ -53,8 +53,10 @@ services:
       - "${TERRYFOX_ONCOLOGY_PORT:-8085}:8085"
     environment:
       SEYMOUR_FHIR_URL: http://seymour-fhir:8090
+      LANGLEY_GATEWAY_URL: http://langley-general-gateway:8083
     depends_on:
       - seymour-fhir
+      - langley-general-gateway
 
   # ---------------------------------------------------------------------------
   # 4. Langley General Gateway (C# .NET 10 Web API - Port 8083)

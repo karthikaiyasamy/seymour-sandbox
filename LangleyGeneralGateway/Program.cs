@@ -23,6 +23,13 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Ensure PostgreSQL database schema is created on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<LangleyGeneralDbContext>();
+    dbContext.Database.EnsureCreated();
+}
+
 app.UseCors("AllowAll");
 
 // Configure OpenAPI endpoint for regional developer portal aggregation

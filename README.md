@@ -39,10 +39,6 @@ This workspace showcases a regional health interoperability sandbox, demonstrati
 Spin up the entire regional health infrastructure (PostgreSQL database, Seymour FHIR Server, Terry Fox Cancer Center, and Langley General C# Gateway) using Docker Compose:
 
 ```bash
-# 1. Package Java modules
-mvn clean package -DskipTests
-
-# 2. Spin up all containerized microservices and database
 docker-compose up --build
 ```
 > **🌐 Centralized API Developer Portal:** Once running, navigate your browser to **`http://localhost:8090/swagger-ui.html`** to explore and test all APIs across the regional health network.

@@ -58,52 +58,63 @@ public class BundleController {
 
         List<Map<String, Object>> responseEntries = new ArrayList<>();
 
-        for (Map<String, Object> entry : entries) {
-            Map<String, Object> resource = (Map<String, Object>) entry.get("resource");
-            Map<String, Object> request = (Map<String, Object>) entry.get("request");
+        try {
+            for (Map<String, Object> entry : entries) {
+                Map<String, Object> resource = (Map<String, Object>) entry.get("resource");
+                Map<String, Object> request = (Map<String, Object>) entry.get("request");
 
-            if (resource == null) {
-                continue;
-            }
-
-            String resType = (String) resource.get("resourceType");
-            String method = request != null ? (String) request.get("method") : "POST";
-            Map<String, Object> responseItem = new LinkedHashMap<>();
-
-            try {
-                if ("Patient".equals(resType)) {
-                    Patient p = processPatientResource(resource);
-                    responseItem.put("status", "201 Created");
-                    responseItem.put("location", "Patient/" + p.getId());
-                    responseItem.put("outcome", Map.of("resourceType", "Patient", "id", String.valueOf(p.getId())));
-                } else if ("Observation".equals(resType)) {
-                    Observation obs = processObservationResource(resource);
-                    responseItem.put("status", "201 Created");
-                    responseItem.put("location", "Observation/" + obs.getId());
-                    responseItem.put("outcome", Map.of("resourceType", "Observation", "id", String.valueOf(obs.getId())));
-                } else if ("AllergyIntolerance".equals(resType)) {
-                    AllergyIntolerance ai = processAllergyResource(resource);
-                    responseItem.put("status", "201 Created");
-                    responseItem.put("location", "AllergyIntolerance/" + ai.getId());
-                    responseItem.put("outcome", Map.of("resourceType", "AllergyIntolerance", "id", String.valueOf(ai.getId())));
-                } else {
-                    responseItem.put("status", "200 OK");
-                    responseItem.put("location", resType + "/1");
+                if (resource == null) {
+                    continue;
                 }
-            } catch (Exception e) {
-                log.error("Failed processing bundle entry [{}]: {}", resType, e.getMessage());
-                if ("transaction".equalsIgnoreCase(bundleType)) {
-                    log.error("Aborting FHIR Bundle transaction and rolling back database state.");
-                    throw new IllegalArgumentException("FHIR Bundle Transaction aborted due to entry error [" + resType + "]: " + e.getMessage(), e);
-                }
-                responseItem.put("status", "400 Bad Request");
-                responseItem.put("outcome", Map.of(
-                        "resourceType", "OperationOutcome",
-                        "issue", List.of(Map.of("severity", "error", "code", "invalid", "diagnostics", e.getMessage()))
-                ));
-            }
 
-            responseEntries.add(Map.of("response", responseItem));
+                String resType = (String) resource.get("resourceType");
+                String method = request != null ? (String) request.get("method") : "POST";
+                Map<String, Object> responseItem = new LinkedHashMap<>();
+
+                try {
+                    if ("Patient".equals(resType)) {
+                        Patient p = processPatientResource(resource);
+                        responseItem.put("status", "201 Created");
+                        responseItem.put("location", "Patient/" + p.getId());
+                        responseItem.put("outcome", Map.of("resourceType", "Patient", "id", String.valueOf(p.getId())));
+                    } else if ("Observation".equals(resType)) {
+                        Observation obs = processObservationResource(resource);
+                        responseItem.put("status", "201 Created");
+                        responseItem.put("location", "Observation/" + obs.getId());
+                        responseItem.put("outcome", Map.of("resourceType", "Observation", "id", String.valueOf(obs.getId())));
+                    } else if ("AllergyIntolerance".equals(resType)) {
+                        AllergyIntolerance ai = processAllergyResource(resource);
+                        responseItem.put("status", "201 Created");
+                        responseItem.put("location", "AllergyIntolerance/" + ai.getId());
+                        responseItem.put("outcome", Map.of("resourceType", "AllergyIntolerance", "id", String.valueOf(ai.getId())));
+                    } else {
+                        responseItem.put("status", "200 OK");
+                        responseItem.put("location", resType + "/1");
+                    }
+                } catch (Exception e) {
+                    log.error("Failed processing bundle entry [{}]: {}", resType, e.getMessage());
+                    if ("transaction".equalsIgnoreCase(bundleType)) {
+                        log.error("Aborting FHIR Bundle transaction and rolling back database state.");
+                        throw new IllegalArgumentException("FHIR Bundle Transaction aborted due to entry error [" + resType + "]: " + e.getMessage(), e);
+                    }
+                    responseItem.put("status", "400 Bad Request");
+                    responseItem.put("outcome", Map.of(
+                            "resourceType", "OperationOutcome",
+                            "issue", List.of(Map.of("severity", "error", "code", "invalid", "diagnostics", e.getMessage()))
+                    ));
+                }
+
+                responseEntries.add(Map.of("response", responseItem));
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "resourceType", "OperationOutcome",
+                    "issue", List.of(Map.of(
+                            "severity", "error",
+                            "code", "processing",
+                            "diagnostics", e.getMessage()
+                    ))
+            ));
         }
 
         Map<String, Object> bundleResponse = new LinkedHashMap<>();

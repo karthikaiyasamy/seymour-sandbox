@@ -179,12 +179,12 @@ public class WebhookController {
             }
 
             String jsonStr = response.body();
-            log.info("Received JSON payload from Mirth: {}", jsonStr);
+            log.info("Received JSON payload response from Mirth interface engine for messageId: {}", messageId);
             JsonNode root = objectMapper.readTree(jsonStr);
 
             String mrn = root.path("patientMrn").asText(null);
             if (mrn == null || mrn.isEmpty()) {
-                log.error("Payload is missing patientMrn: {}", jsonStr);
+                log.error("Payload for messageId {} is missing patientMrn", messageId);
                 return;
             }
 
