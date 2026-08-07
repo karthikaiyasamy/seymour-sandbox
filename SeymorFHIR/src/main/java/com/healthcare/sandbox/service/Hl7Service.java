@@ -1,15 +1,23 @@
 package com.healthcare.sandbox.service;
 
 import com.healthcare.sandbox.model.AdtEvent;
+import com.healthcare.sandbox.model.Hl7AuditLog;
 import com.healthcare.sandbox.model.Patient;
+import com.healthcare.sandbox.repository.Hl7AuditLogRepository;
 import com.healthcare.sandbox.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HexFormat;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 public class Hl7Service {
 
     private final PatientRepository patientRepo;
+    private final Hl7AuditLogRepository auditLogRepo;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -81,68 +90,111 @@ public class Hl7Service {
     /**
      * Parses a pipe-delimited HL7 v2 ADT message and returns an AdtEvent.
      * Registers a new patient if the MRN is not already found in the database.
+     * Includes full message audit logging and MSH-10 idempotency protection.
      */
     public AdtEvent parseHl7(String hl7Text) {
+        String correlationId = UUID.randomUUID().toString();
+        String payloadHash = calculateSha256(hl7Text);
+
+        // Check for duplicate payload hash
+        Optional<Hl7AuditLog> existingHashLog = auditLogRepo.findByPayloadHash(payloadHash);
+        if (existingHashLog.isPresent()) {
+            Hl7AuditLog prevLog = existingHashLog.get();
+            log.warn("HL7 Idempotency Rejection: Duplicate payload received. Original Correlation ID: {}", prevLog.getCorrelationId());
+            throw new IllegalArgumentException("Duplicate HL7 payload rejected. Previously processed under Correlation ID: " + prevLog.getCorrelationId());
+        }
+
         String[] lines = hl7Text.split("[\\r\\n]+");
         
+        String messageControlId = "MSG-" + System.currentTimeMillis();
+        String sendingFacility = "UNKNOWN_FACILITY";
+        String sendingApp = "UNKNOWN_APP";
         String eventType = "ADMIT";
         String eventCode = "A01";
         LocalDateTime eventDatetime = LocalDateTime.now();
-        
-        // Patient demographics
-        String mrn = null;
-        String lastName = "";
-        String firstName = "";
-        LocalDate dob = null;
-        String gender = "unknown";
-        String phone = "";
-        String addressLine = "";
-        String city = "";
-        String province = "BC";
-        String postalCode = "";
-        String healthCardNumber = "";
 
-        // Encounter details
-        String patientClass = "OUTPATIENT";
-        String ward = null;
-        String room = null;
-        String bed = null;
-        String facility = "Unknown Facility";
-        String attendingPhysician = "";
-        String visitNumber = null;
-        String admittingDiagnosis = null;
-
+        // Extract MSH details first
         for (String line : lines) {
             String[] fields = line.split("\\|");
-            if (fields.length == 0) continue;
-            
-            String segmentName = fields[0];
-            switch (segmentName) {
-                case "MSH":
-                    if (fields.length > 8) {
-                        String eventStr = fields[8]; // e.g. ADT^A01^ADT_A01
-                        String[] subfields = eventStr.split("\\^");
-                        if (subfields.length > 1) {
-                            eventCode = subfields[1];
-                            eventType = mapEventCodeToType(eventCode);
-                        }
+            if (fields.length > 0 && "MSH".equals(fields[0])) {
+                if (fields.length > 2) sendingApp = fields[2];
+                if (fields.length > 3) sendingFacility = fields[3];
+                if (fields.length > 6) eventDatetime = parseDateTime(fields[6]);
+                if (fields.length > 8) {
+                    String eventStr = fields[8];
+                    String[] subfields = eventStr.split("\\^");
+                    if (subfields.length > 1) {
+                        eventCode = subfields[1];
+                        eventType = mapEventCodeToType(eventCode);
                     }
-                    if (fields.length > 6) {
-                        eventDatetime = parseDateTime(fields[6]);
-                    }
-                    break;
+                }
+                if (fields.length > 9 && !fields[9].isEmpty()) {
+                    messageControlId = fields[9];
+                }
+                break;
+            }
+        }
 
-                case "PID":
-                    if (fields.length > 3) {
-                        mrn = parseSubfield(fields[3], 0);
-                    }
-                    if (fields.length > 5) {
-                        lastName = parseSubfield(fields[5], 0);
-                        firstName = parseSubfield(fields[5], 1);
-                    }
-                    if (fields.length > 7) {
-                        dob = parseDate(fields[7]);
-                    }
+        // MSH-10 Message Control ID Idempotency Check
+        Optional<Hl7AuditLog> existingControlLog = auditLogRepo.findByMessageControlId(messageControlId);
+        if (existingControlLog.isPresent()) {
+            log.warn("HL7 Idempotency Rejection: MSH-10 Message Control ID [{}] already processed.", messageControlId);
+            throw new IllegalArgumentException("Duplicate MSH-10 Message Control ID rejected: " + messageControlId);
+        }
+
+        // Create Initial Audit Log (RECEIVED)
+        Hl7AuditLog auditLog = auditLogRepo.save(Hl7AuditLog.builder()
+                .messageControlId(messageControlId)
+                .correlationId(correlationId)
+                .sendingFacility(sendingFacility)
+                .sendingApplication(sendingApp)
+                .eventType(eventType + "^" + eventCode)
+                .payloadHash(payloadHash)
+                .status("RECEIVED")
+                .receivedAt(LocalDateTime.now())
+                .build());
+
+        try {
+            // Patient demographics
+            String mrn = null;
+            String lastName = "";
+            String firstName = "";
+            LocalDate dob = null;
+            String gender = "unknown";
+            String phone = "";
+            String addressLine = "";
+            String city = "";
+            String province = "BC";
+            String postalCode = "";
+            String healthCardNumber = "";
+
+            // Encounter details
+            String patientClass = "OUTPATIENT";
+            String ward = null;
+            String room = null;
+            String bed = null;
+            String facility = sendingFacility;
+            String attendingPhysician = "";
+            String visitNumber = null;
+            String admittingDiagnosis = null;
+
+            for (String line : lines) {
+                String[] fields = line.split("\\|");
+                if (fields.length == 0) continue;
+                
+                String segmentName = fields[0];
+                switch (segmentName) {
+                    case "PID":
+                        if (fields.length > 3) {
+                            mrn = parseSubfield(fields[3], 0);
+                        }
+                        if (fields.length > 5) {
+                            lastName = parseSubfield(fields[5], 0);
+                            firstName = parseSubfield(fields[5], 1);
+                        }
+                        if (fields.length > 7) {
+                            dob = parseDate(fields[7]);
+                        }
                     if (fields.length > 8) {
                         String g = fields[8];
                         if ("M".equalsIgnoreCase(g)) gender = "male";
@@ -234,21 +286,44 @@ public class Hl7Service {
                     .build());
         });
 
-        return AdtEvent.builder()
-                .patient(patient)
-                .eventType(eventType)
-                .eventCode(eventCode)
-                .eventDatetime(eventDatetime)
-                .facility(facility)
-                .ward(ward)
-                .room(room)
-                .bed(bed)
-                .attendingPhysician(attendingPhysician)
-                .admittingDiagnosis(admittingDiagnosis)
-                .visitNumber(visitNumber)
-                .patientClass(patientClass)
-                .notes("Generated via HL7 v2 Message parsing.")
-                .build();
+            auditLog.setStatus("DELIVERED");
+            auditLog.setProcessedAt(LocalDateTime.now());
+            auditLogRepo.save(auditLog);
+
+            return AdtEvent.builder()
+                    .patient(patient)
+                    .eventType(eventType)
+                    .eventCode(eventCode)
+                    .eventDatetime(eventDatetime)
+                    .facility(facility)
+                    .ward(ward)
+                    .room(room)
+                    .bed(bed)
+                    .attendingPhysician(attendingPhysician)
+                    .admittingDiagnosis(admittingDiagnosis)
+                    .visitNumber(visitNumber)
+                    .patientClass(patientClass)
+                    .notes("Generated via HL7 v2 Message parsing.")
+                    .build();
+
+        } catch (Exception ex) {
+            auditLog.setStatus("FAILED");
+            auditLog.setFailureReason(ex.getMessage());
+            auditLog.setProcessedAt(LocalDateTime.now());
+            auditLogRepo.save(auditLog);
+            log.error("HL7 Processing Failure for Correlation ID [{}]: {}", correlationId, ex.getMessage());
+            throw ex;
+        }
+    }
+
+    public String calculateSha256(String text) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            return String.valueOf(text.hashCode());
+        }
     }
 
     private String mapEventCodeToType(String code) {
