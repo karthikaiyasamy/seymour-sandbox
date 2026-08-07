@@ -27,18 +27,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.healthcare.sandbox.model.PatientMatchReview;
+import com.healthcare.sandbox.repository.PatientMatchReviewRepository;
+
 class Hl7ServiceTest {
 
     private PatientRepository patientRepo;
     private Hl7AuditLogRepository auditLogRepo;
+    private PatientMatchReviewRepository matchReviewRepo;
     private Hl7Service hl7Service;
 
     @BeforeEach
     void setUp() {
         patientRepo = mock(PatientRepository.class);
         auditLogRepo = mock(Hl7AuditLogRepository.class);
+        matchReviewRepo = mock(PatientMatchReviewRepository.class);
         when(auditLogRepo.save(any(Hl7AuditLog.class))).thenAnswer(i -> i.getArguments()[0]);
-        hl7Service = new Hl7Service(patientRepo, auditLogRepo);
+        when(matchReviewRepo.save(any(PatientMatchReview.class))).thenAnswer(i -> i.getArguments()[0]);
+        hl7Service = new Hl7Service(patientRepo, auditLogRepo, matchReviewRepo);
     }
 
     @Test

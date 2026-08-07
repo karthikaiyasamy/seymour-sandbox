@@ -19,6 +19,9 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.healthcare.sandbox.model.PatientMatchReview;
+import com.healthcare.sandbox.repository.PatientMatchReviewRepository;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,6 +29,7 @@ public class Hl7Service {
 
     private final PatientRepository patientRepo;
     private final Hl7AuditLogRepository auditLogRepo;
+    private final PatientMatchReviewRepository matchReviewRepo;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -255,36 +259,54 @@ public class Hl7Service {
             visitNumber = "VN-" + System.currentTimeMillis() % 1000000;
         }
 
-        // Find or create patient
-        final String finalMrn = mrn;
-        final String finalFirstName = firstName;
-        final String finalLastName = lastName;
-        final LocalDate finalDob = dob;
-        final String finalGender = gender;
-        final String finalPhone = phone;
-        final String finalAddressLine = addressLine;
-        final String finalCity = city;
-        final String finalProvince = province;
-        final String finalPostalCode = postalCode;
-        final String finalHealthCardNumber = healthCardNumber;
+        // Patient Demographics & Identity Match Resolution
+        Optional<Patient> existingMrnPatient = patientRepo.findByMrn(mrn);
+        Patient patient;
 
-        Patient patient = patientRepo.findByMrn(mrn).orElseGet(() -> {
+        if (existingMrnPatient.isPresent()) {
+            patient = existingMrnPatient.get();
+        } else {
+            // Compute match score against active patient database for conflict detection
+            double maxMatchScore = 0.0;
+            for (Patient p : patientRepo.findByActiveTrue()) {
+                double score = 0.0;
+                if (p.getLastName() != null && p.getLastName().equalsIgnoreCase(lastName)) score += 0.35;
+                if (p.getFirstName() != null && p.getFirstName().equalsIgnoreCase(firstName)) score += 0.25;
+                if (p.getDateOfBirth() != null && p.getDateOfBirth().equals(dob)) score += 0.40;
+                if (score > maxMatchScore) maxMatchScore = score;
+            }
+
+            // Ambiguous Match Threshold (Conflict Resolution Trigger)
+            if (maxMatchScore >= 0.35 && maxMatchScore < 0.85) {
+                log.warn("HL7 Identity Conflict Detected (Match Score: {}). Flagging PENDING_REVIEW record for human review.", maxMatchScore);
+                matchReviewRepo.save(PatientMatchReview.builder()
+                        .inboundMrn(mrn)
+                        .inboundPhn(healthCardNumber)
+                        .inboundFirstName(firstName)
+                        .inboundLastName(lastName)
+                        .inboundDob(dob != null ? dob.toString() : null)
+                        .matchScore(maxMatchScore)
+                        .status("PENDING_REVIEW")
+                        .createdAt(LocalDateTime.now())
+                        .build());
+            }
+
             log.info("HL7 Parser: Registering new patient record from HL7 ADT message");
-            return patientRepo.save(Patient.builder()
-                    .mrn(finalMrn)
-                    .firstName(finalFirstName)
-                    .lastName(finalLastName)
-                    .dateOfBirth(finalDob)
-                    .gender(finalGender)
-                    .phone(finalPhone)
-                    .addressLine(finalAddressLine)
-                    .city(finalCity)
-                    .province(finalProvince)
-                    .postalCode(finalPostalCode)
-                    .healthCardNumber(finalHealthCardNumber)
+            patient = patientRepo.save(Patient.builder()
+                    .mrn(mrn)
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .dateOfBirth(dob)
+                    .gender(gender)
+                    .phone(phone)
+                    .addressLine(addressLine)
+                    .city(city)
+                    .province(province)
+                    .postalCode(postalCode)
+                    .healthCardNumber(healthCardNumber)
                     .active(true)
                     .build());
-        });
+        }
 
             auditLog.setStatus("DELIVERED");
             auditLog.setProcessedAt(LocalDateTime.now());
