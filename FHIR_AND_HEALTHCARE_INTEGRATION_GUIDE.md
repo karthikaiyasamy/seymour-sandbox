@@ -20,6 +20,8 @@ Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass G
 12. [Integration Engine Pipeline (Mirth Connect & Webhooks)](#12-integration-engine-pipeline-mirth-connect--webhooks)
 13. [SMART on FHIR OAuth2 Authentication & Launch Context](#13-smart-on-fhir-oauth2-authentication--launch-context)
 14. [End-to-End API Testing & Curl Command Reference](#14-end-to-end-api-testing--curl-command-reference)
+15. [Reliable HL7 Message Audit, MSH-10 Idempotency & Tracing](#15-reliable-hl7-message-audit-msh-10-idempotency--tracing)
+16. [Patient Identity Conflict Resolution & PENDING_REVIEW Queue](#16-patient-identity-conflict-resolution--pending_review-queue)
 
 ---
 
@@ -531,4 +533,73 @@ public class HealthcareGatewayResilience
 | **Circuit Breaker** | Detect downstream failure and trip open to stop calling a broken service, allowing it to recover. | Electrical circuit breaker tripping during a power surge. | Resilience4j `@CircuitBreaker` / Polly `Policy.Handle<Exception>()` |
 | **Rate Limiter** | Restrict total incoming request frequency over a time window to prevent API abuse. | Bouncer at the front door checking entry speed. | Bucket4j / Spring Cloud Gateway RateLimiter / ASP.NET Core RateLimiting |
 | **Retry with Backoff** | Automatically re-attempt transient network/database errors with exponential delay. | Dialing a busy phone number again after 5s, 10s, 20s. | Resilience4j `@Retry` / Polly `Policy.Handle().WaitAndRetryAsync()` |
+
+---
+
+## 15. Reliable HL7 Message Audit, MSH-10 Idempotency & Tracing
+
+In enterprise hospital interface networks (e.g. **Philips IntelliBridge**, **Cerner OpenEngine**, **Mirth Connect**), network glitches or server timeouts frequently trigger interface retries. Without strict idempotency protection, a re-sent HL7 `ADT^A01` message can create duplicate patient demographics and duplicate inpatient encounters.
+
+### 15.1 Message Lifecycle & State Machine
+
+Seymour Sandbox implements full audit tracking (`Hl7AuditLog.java`) following a 5-stage state machine:
+
+```
+[ INBOUND HL7 ] ──► ( RECEIVED ) ──► ( VALIDATED ) ──► ( TRANSFORMED ) ──► ( DELIVERED )
+                                                                 │
+                                                                 └─────► ( FAILED )
+```
+
+| Lifecycle State | Description | DB Table Status |
+| :--- | :--- | :--- |
+| **`RECEIVED`** | Raw HL7 string received over HTTP or MLLP; unique correlation ID generated. | `RECEIVED` |
+| **`VALIDATED`** | MSH segment format verified; MSH-10 Control ID and SHA-256 payload hash checked for duplicates. | `VALIDATED` |
+| **`TRANSFORMED`**| Demographics extracted; PHN Modulus-11 validated; FHIR Patient & AdtEvent constructed. | `TRANSFORMED` |
+| **`DELIVERED`** | Patient and AdtEvent successfully persisted in PostgreSQL database. | `DELIVERED` |
+| **`FAILED`** | Parsing error, checksum failure, or identity match conflict halted processing. | `FAILED` |
+
+### 15.2 MSH-10 & SHA-256 Idempotency Implementation
+
+```java
+// Check MSH-10 Control ID Idempotency FIRST
+Optional<Hl7AuditLog> existingControlLog = auditLogRepo.findByMessageControlId(messageControlId);
+if (existingControlLog.isPresent()) {
+    log.warn("HL7 Idempotency Rejection: MSH-10 Message Control ID [{}] already processed.", messageControlId);
+    throw new IllegalArgumentException("Duplicate MSH-10 Message Control ID rejected: " + messageControlId);
+}
+
+// Check Payload SHA-256 Hash Idempotency SECOND
+Optional<Hl7AuditLog> existingHashLog = auditLogRepo.findByPayloadHash(payloadHash);
+if (existingHashLog.isPresent()) {
+    Hl7AuditLog prevLog = existingHashLog.get();
+    throw new IllegalArgumentException("Duplicate HL7 payload rejected. Previously processed under Correlation ID: " + prevLog.getCorrelationId());
+}
+```
+
+---
+
+## 16. Patient Identity Conflict Resolution & PENDING_REVIEW Queue
+
+Patient safety is the top priority in Canadian Health Authorities (**PHSA**, **Fraser Health**, **Vancouver Coastal Health**). When an inbound ADT message arrives with an ambiguous demographic match (e.g. matching name and DOB but a different MRN or misspelled surname), **silently overwriting patient history or creating a duplicate record violates clinical safety**.
+
+### 16.1 Multi-Field Match Scoring Engine
+
+Seymour calculates a weighted demographic match score ($S \in [0.0, 1.0]$):
+
+$$S = S_{\text{LastName}} (0.35) + S_{\text{FirstName}} (0.25) + S_{\text{DOB}} (0.40)$$
+
+| Match Score Range | Classification | Action Taken |
+| :--- | :--- | :--- |
+| **$S \ge 0.85$** | High Confidence Match | Automatically associate data with existing Patient record. |
+| **$0.35 \le S < 0.85$** | **Ambiguous Conflict** | **Halt Patient creation**. Save `PatientMatchReview` in `PENDING_REVIEW` queue. |
+| **$S < 0.35$** | No Match | Safely register new Patient record in database. |
+
+### 16.2 Conflict Resolution Workflow
+
+1. Inbound HL7 ADT message triggers match score calculation.
+2. Score $0.60$ triggers `PENDING_REVIEW` state in `PatientMatchReview` entity.
+3. Patient creation is **immediately halted**, throwing an exception.
+4. Health Information Management (HIM) analysts inspect pending conflicts via `GET /api/fhir/Patient/match-reviews`.
+5. HIM analyst approves the record via `POST /api/fhir/Patient/match-reviews/{id}/approve`, promoting the record to `MANUALLY_APPROVED` and registering the Patient safely.
+
 

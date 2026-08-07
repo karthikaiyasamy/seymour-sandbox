@@ -17,12 +17,14 @@ This workspace showcases a regional health interoperability sandbox, demonstrati
 ### Key Integration Capabilities
 * **Hybrid Technology Stack:** Dual-stack integration featuring a Java Spring Boot clinical backend (`Seymour Regional EHR`), a C# .NET 10 Web API registration gateway (`Langley General`), a specialized HAPI FHIR R4 oncology server (`Terry Fox Cancer Hospital`), and PostgreSQL databases.
 * **FHIR R4 Resource Suite & HAPI Providers:** Support for `Patient`, `Encounter`, `Observation` (LOINC-coded vitals/labs), `AllergyIntolerance` (SNOMED-coded allergies), `MedicationRequest`, `ResearchStudy`, and `ResearchSubject`.
-* **Atomic FHIR Bundle Processing:** FHIR `transaction` and `batch` processing engine (`POST /api/fhir` in Java, `POST /fhir` in C#) enforcing transactional database rollback on entry failures.
-* **HL7 v2 Message Ingestion & Parsing (Java & C#):** Automated transformation, serialization, and ingestion of **ADT** (Admit, Discharge, Transfer), **ORU** (Observation Result / Lab Results), and **VXU** (Unsolicited Vaccination Record) messages in both Java (`Hl7Service.java`) and C# (`Hl7Parser.cs` & `Hl7IngestController.cs`).
+* **Reliable HL7 Message Audit & MSH-10 Idempotency:** Full message lifecycle tracking (`RECEIVED` $\rightarrow$ `VALIDATED` $\rightarrow$ `TRANSFORMED` $\rightarrow$ `DELIVERED` / `FAILED`). Enforces duplicate payload rejection via **SHA-256 payload hashing** and `MSH-10` Message Control ID tracking.
+* **Patient Identity Conflict Resolution:** Multi-field demographic match scoring engine (0.0 to 1.0) using MRN, PHN, name, and DOB. Automatically halts patient creation on ambiguous match scores (0.35 - 0.85) and queues records in a dedicated `PENDING_REVIEW` human conflict resolution queue (`PatientMatchReviewController`).
+* **Atomic FHIR Bundle Processing:** FHIR `transaction` and `batch` processing engine (`POST /api/fhir` in Java, `POST /fhir` in C#) enforcing Spring `TransactionAspectSupport.setRollbackOnly()` database rollback on entry failures.
 * **BC-Standard Identity Validation (Modulus-11):** Implementation of the official British Columbia Personal Health Number (PHN) check digit validation algorithm in both Java and C# utility layers, verifying checksums and rejecting invalid cards.
-* **PII Security & Masking:** Custom utility layers that mask Patient Health Information (PHI) in terminal and file logging (e.g. `9234567897` $\rightarrow$ `923****897`) to comply with BC FOIPPA data privacy regulations.
+* **FOIPPA Data Privacy & PII Sanitization:** Custom log sanitization layers stripping raw patient JSON maps, MRNs, and patient names, logging correlation tracing IDs and masked PHNs (`900****071`) only.
 * **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing opaque Bearer tokens with active launch patient context (`patient: "1"`).
-* **Resilience Patterns (Resilience4j):** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) capping slow PDF export queries to protect core API endpoints.
+* **Resilience & Automated CI/CD Pipeline:** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) protecting core endpoints, plus a cloud **GitHub Actions CI/CD pipeline** (`.github/workflows/ci.yml`) pinning Java 21 & .NET 10 with 30 passing unit tests.
+* **5-Minute Technical Interview Showcase:** Step-by-step interview script ([`docs/demo-script.md`](file:///Users/karthik/dev/seymour/seymour-sandbox/docs/demo-script.md)) formatted for live technical interviews at PHSA and Fraser Health.
 
 ---
 
