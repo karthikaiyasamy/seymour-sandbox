@@ -33,8 +33,8 @@ public class TerryFoxDataSeeder implements CommandLineRunner {
 
         // 0. Patient: Margaret Chen (Stage IIIA Non-Small Cell Lung Cancer - EMPI Identity Link to Seymour)
         PatientEntity margaret = PatientEntity.builder()
-                .phn("MRN-10001") // Matching Seymour PHN
-                .mrn("TF-ONC-2026-000")
+                .phn("BC9001234567") // Matching Seymour Official PHN
+                .mrn("MRN-10001")    // Matching Seymour Usual MRN
                 .givenName("Margaret A.")
                 .familyName("Chen")
                 .birthDate(LocalDate.of(1948, 3, 15)) // ⚠️ 3-Day DOB Discrepancy from Seymour's 1948-03-12

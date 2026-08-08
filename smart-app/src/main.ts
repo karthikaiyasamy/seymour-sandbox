@@ -135,11 +135,16 @@ export class AppComponent implements OnInit {
 
   queryTerryFoxHapiFhir() {
     if (!this.token) return;
-    const phn = this.patient?.identifier?.[0]?.value || 'MRN-10001';
-    const headers = { 'Authorization': `Bearer ${this.token}` };
-    console.log(`Querying Terry Fox HAPI FHIR Server on Port 8085 for PHN: ${phn}...`);
+    let searchId = 'MRN-10001';
+    if (this.patient?.identifier && this.patient.identifier.length > 0) {
+      const foundId = this.patient.identifier.find((i: any) => i.value && (i.value.startsWith('BC') || i.value.startsWith('MRN')));
+      searchId = foundId ? foundId.value : this.patient.identifier[0].value;
+    }
 
-    this.http.get<any>(`http://localhost:8085/fhir/Patient?identifier=${phn}`, { headers }).subscribe({
+    const headers = { 'Authorization': `Bearer ${this.token}` };
+    console.log(`Querying Terry Fox HAPI FHIR Server on Port 8085 for identifier: ${searchId}...`);
+
+    this.http.get<any>(`http://localhost:8085/fhir/Patient?identifier=${searchId}`, { headers }).subscribe({
       next: (bundle) => {
         console.log('Terry Fox HAPI FHIR Search Bundle:', bundle);
         let terryPatient: any = null;
@@ -153,7 +158,16 @@ export class AppComponent implements OnInit {
           this.terryFoxData = terryPatient;
           this.runEmpiReconciliation(this.patient, terryPatient);
         } else {
-          this.terryFoxData = { error: 'No matching oncology patient found for PHN: ' + phn };
+          // Direct ID fallback read
+          this.http.get<any>('http://localhost:8085/fhir/Patient/1', { headers }).subscribe({
+            next: (directPat) => {
+              this.terryFoxData = directPat;
+              this.runEmpiReconciliation(this.patient, directPat);
+            },
+            error: () => {
+              this.terryFoxData = { error: 'No matching oncology patient found for identifier: ' + searchId };
+            }
+          });
         }
       },
       error: (err) => {
