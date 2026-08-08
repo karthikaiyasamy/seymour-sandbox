@@ -54,11 +54,30 @@ public class OAuth2Controller {
     @PostMapping(value = "/token")
     public ResponseEntity<Map<String, Object>> token(
             @RequestParam(name = "grant_type", required = false) String grantType,
-            @RequestParam(name = "code", required = false) String code,
-            @RequestParam(name = "client_id", required = false) String clientId) {
+            @RequestParam(name = "code", required = false) String paramCode,
+            @RequestParam(name = "client_id", required = false) String paramClientId,
+            org.springframework.http.HttpEntity<String> httpEntity) {
 
-        String effectiveCode = code;
-        String effectiveClientId = clientId != null ? clientId : "seymour_smart_app";
+        String effectiveCode = paramCode;
+        String effectiveClientId = paramClientId != null ? paramClientId : "seymour_smart_app";
+
+        if (httpEntity != null && httpEntity.getBody() != null) {
+            String rawBody = httpEntity.getBody().trim();
+            if (rawBody.startsWith("{")) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    Map<String, Object> json = mapper.readValue(rawBody, Map.class);
+                    if (effectiveCode == null && json.containsKey("code")) {
+                        effectiveCode = (String) json.get("code");
+                    }
+                    if (json.containsKey("client_id")) {
+                        effectiveClientId = (String) json.get("client_id");
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse JSON body on token request: {}", e.getMessage());
+                }
+            }
+        }
 
         return processTokenRequest(effectiveCode, effectiveClientId);
     }
