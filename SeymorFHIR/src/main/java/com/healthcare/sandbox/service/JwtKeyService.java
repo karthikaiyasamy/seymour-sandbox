@@ -139,6 +139,52 @@ public class JwtKeyService {
         return jwkSet.toJSONObject();
     }
 
+    public synchronized Map<String, Object> rotateRsaKeyPair() throws Exception {
+        String newKeyId = "seymour-key-" + System.currentTimeMillis();
+        log.warn("[KEY_ROTATION_START] Initiating emergency RSA key rotation in Seymour Auth Server. New Key ID: {}", newKeyId);
+
+        for (OAuthKey oldKey : oauthKeyRepository.findAll()) {
+            oldKey.setActive(false);
+            oauthKeyRepository.save(oldKey);
+        }
+
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+        String privatePem = convertToPem("PRIVATE KEY", keyPair.getPrivate().getEncoded());
+        String publicPem = convertToPem("PUBLIC KEY", keyPair.getPublic().getEncoded());
+
+        OAuthKey newKey = OAuthKey.builder()
+                .keyId(newKeyId)
+                .privateKeyPem(privatePem)
+                .publicKeyPem(publicPem)
+                .algorithm("RS256")
+                .active(true)
+                .createdAt(LocalDateTime.now())
+                .build();
+        oauthKeyRepository.save(newKey);
+
+        configuredKeyId = newKeyId;
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+
+        rsaKey = new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(newKeyId)
+                .build();
+        signer = new RSASSASigner(rsaKey);
+
+        log.info("[KEY_ROTATION_COMPLETE] RSA key rotation finished! New active Key ID: {}", newKeyId);
+
+        return Map.of(
+                "status", "KEY_ROTATED_SUCCESSFULLY",
+                "activeKeyId", newKeyId,
+                "rotatedAt", LocalDateTime.now().toString(),
+                "algorithm", "RS256"
+        );
+    }
+
     public String generateSignedSmartJwt(String clientId, String patientId, String scope, long validitySeconds) {
         try {
             Date now = new Date();

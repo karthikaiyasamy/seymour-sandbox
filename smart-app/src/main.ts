@@ -22,12 +22,26 @@ import { CommonModule } from '@angular/common';
           <button *ngIf="!token" class="btn-primary" style="background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: #fff; font-weight: 600; padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);" (click)="launchSmartAuth()">
             ⚡ Authenticate SMART OAuth
           </button>
-          <div *ngIf="token" style="display: flex; align-items: center; gap: 10px;">
+          <div *ngIf="token" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <span style="display: inline-block; width: 8px; height: 8px; background: #34d399; border-radius: 50%; box-shadow: 0 0 10px #34d399;"></span>
-            <span style="color: #cbd5e1; font-size: 0.85rem; font-weight: 500;">OAuth Session Active (RS256 Bearer JWT)</span>
+            <span style="color: #cbd5e1; font-size: 0.85rem; font-weight: 500;">OAuth Active</span>
+            <button style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 600; font-size: 0.78rem; padding: 6px 12px; border-radius: 8px; cursor: pointer;" (click)="rotateRsaKeys()">
+              🔄 Rotate RSA Keys Live
+            </button>
           </div>
         </div>
       </header>
+
+      <!-- RSA Key Rotation Event Banner -->
+      <div *ngIf="keyRotationNotice" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 14px; padding: 16px 22px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">🚨</span>
+          <div>
+            <strong style="color: #f87171; font-size: 0.95rem; display: block;">Emergency RSA Key Rotation Executed in Seymour Auth!</strong>
+            <span style="color: #fca5a5; font-size: 0.82rem;">New Active Key ID: <code>{{ keyRotationNotice.activeKeyId }}</code>. Fresh token issued. Terry Fox will automatically evict cache and fetch fresh JWKS!</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Patient Search & Directory Bar -->
       <div class="glass-panel" style="margin-bottom: 24px; padding: 22px 28px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px;">
@@ -167,10 +181,24 @@ export class AppComponent implements OnInit {
   terryFoxData: any = null;
   empiAnalysis: any = null;
   flaggedForAudit: boolean = false;
+  keyRotationNotice: any = null;
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {}
+
+  rotateRsaKeys() {
+    console.warn('[ADMIN_KEY_ROTATION] Triggering live RSA Key Rotation in Seymour Auth Server...');
+    this.http.post<any>('http://localhost:8090/api/admin/rotate-keys', {}).subscribe({
+      next: (res) => {
+        console.warn('RSA Key Rotation Complete:', res);
+        this.keyRotationNotice = res;
+        // Re-authenticate to obtain fresh token signed with new key
+        this.launchSmartAuth();
+      },
+      error: (err) => console.error('Key Rotation Error:', err)
+    });
+  }
 
   selectPatientByMrn(mrn: string) {
     this.searchPatient(mrn);
