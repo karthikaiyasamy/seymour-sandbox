@@ -1,5 +1,6 @@
 package com.healthcare.sandbox.controller;
 
+import com.healthcare.sandbox.service.JwtKeyService;
 import com.healthcare.sandbox.service.TokenStoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import java.util.*;
 public class OAuth2TokenController {
 
     private final TokenStoreService tokenStoreService;
+    private final JwtKeyService jwtKeyService;
     private static final Map<String, String> AUTHORIZATION_CODES = new HashMap<>();
 
     /**
@@ -80,19 +82,20 @@ public class OAuth2TokenController {
             ));
         }
 
-        String rawToken = "eySmartFhirToken_" + UUID.randomUUID().toString().replaceAll("-", "");
+        String scope = "launch/patient patient/*.read patient/Observation.read patient/AllergyIntolerance.read openid fhirUser";
+        String jwtToken = jwtKeyService.generateSignedSmartJwt(clientId, patientId, scope, 3600);
         int expiresInSeconds = 3600;
 
         // Register token in active token store
-        tokenStoreService.registerToken(rawToken, patientId, clientId, expiresInSeconds);
+        tokenStoreService.registerToken(jwtToken, patientId, clientId, expiresInSeconds);
 
-        log.info("[SMART_OAUTH_TOKEN_ISSUED] Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
+        log.info("[SMART_OAUTH_TOKEN_ISSUED] Signed RS256 JWT Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
 
         Map<String, Object> tokenResponse = new LinkedHashMap<>();
-        tokenResponse.put("access_token", rawToken);
+        tokenResponse.put("access_token", jwtToken);
         tokenResponse.put("token_type", "Bearer");
         tokenResponse.put("expires_in", expiresInSeconds);
-        tokenResponse.put("scope", "launch/patient patient/*.read openid fhirUser");
+        tokenResponse.put("scope", scope);
         tokenResponse.put("patient", patientId);
         tokenResponse.put("need_patient_banner", true);
         tokenResponse.put("smart_style_url", "http://localhost:8090/smart-style.json");

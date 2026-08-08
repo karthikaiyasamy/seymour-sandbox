@@ -13,12 +13,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class SmartFhirSecurityInterceptorTest {
 
     private TokenStoreService tokenStoreService;
+    private com.healthcare.sandbox.service.JwtKeyService jwtKeyService;
     private SmartFhirSecurityInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         tokenStoreService = new TokenStoreService();
-        interceptor = new SmartFhirSecurityInterceptor(tokenStoreService);
+        jwtKeyService = new com.healthcare.sandbox.service.JwtKeyService();
+        jwtKeyService.init();
+        interceptor = new SmartFhirSecurityInterceptor(tokenStoreService, jwtKeyService);
     }
 
     @Test

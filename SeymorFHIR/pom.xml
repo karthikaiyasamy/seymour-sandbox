@@ -48,6 +48,13 @@
             <version>2.5.0</version>
         </dependency>
 
+        <!-- Nimbus JOSE JWT for RS256 Signing & JWKS -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.37.3</version>
+        </dependency>
+
         <!-- HAPI FHIR R4 Core -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>

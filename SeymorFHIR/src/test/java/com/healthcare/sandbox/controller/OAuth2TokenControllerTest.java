@@ -25,6 +25,9 @@ class OAuth2TokenControllerTest {
     @Mock
     private TokenStoreService tokenStoreService;
 
+    @Mock
+    private com.healthcare.sandbox.service.JwtKeyService jwtKeyService;
+
     @InjectMocks
     private OAuth2TokenController oauth2TokenController;
 
@@ -32,6 +35,8 @@ class OAuth2TokenControllerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(oauth2TokenController).build();
+        org.mockito.Mockito.when(jwtKeyService.generateSignedSmartJwt(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn("eySmartFhirToken_MockSignedRS256JwtString");
     }
 
     @Test
