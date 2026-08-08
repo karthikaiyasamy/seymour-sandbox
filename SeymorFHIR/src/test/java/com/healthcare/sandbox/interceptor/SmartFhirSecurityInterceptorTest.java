@@ -19,7 +19,9 @@ class SmartFhirSecurityInterceptorTest {
     @BeforeEach
     void setUp() {
         tokenStoreService = new TokenStoreService();
-        jwtKeyService = new com.healthcare.sandbox.service.JwtKeyService();
+        com.healthcare.sandbox.repository.OAuthKeyRepository oauthKeyRepository = org.mockito.Mockito.mock(com.healthcare.sandbox.repository.OAuthKeyRepository.class);
+        org.mockito.Mockito.when(oauthKeyRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(java.util.Optional.empty());
+        jwtKeyService = new com.healthcare.sandbox.service.JwtKeyService(oauthKeyRepository);
         jwtKeyService.init();
         interceptor = new SmartFhirSecurityInterceptor(tokenStoreService, jwtKeyService);
     }
