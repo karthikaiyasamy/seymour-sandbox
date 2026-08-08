@@ -55,6 +55,13 @@
             <version>9.37.3</version>
         </dependency>
 
+        <!-- ByteBuddy for Hibernate JPA Bytecode Provider -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>1.14.17</version>
+        </dependency>
+
         <!-- HAPI FHIR R4 Core -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
@@ -87,12 +94,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.bytebuddy</groupId>
-            <artifactId>byte-buddy</artifactId>
-            <version>1.14.17</version>
             <scope>test</scope>
         </dependency>
         <dependency>

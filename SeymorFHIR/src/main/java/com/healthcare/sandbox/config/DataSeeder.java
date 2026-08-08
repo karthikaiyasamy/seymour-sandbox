@@ -77,7 +77,26 @@ public class DataSeeder implements CommandLineRunner {
                 .visitNumber("VN-2024-88001").patientClass("INPATIENT")
                 .notes("Discharged with endocrinology follow-up in 2 weeks. Insulin regimen adjusted.").build());
 
-        // Medications for p1
+        // Observations (Vitals & Lab Results) for p1
+        observationRepo.save(Observation.builder()
+                .patient(p1).category("vital-signs").code("8867-4").codeSystem("http://loinc.org").codeDisplay("Heart Rate")
+                .valueQuantity(88.0).valueUnit("beats/min").interpretation("N").effectiveDateTime(LocalDateTime.now().minusDays(8))
+                .status("final").issued(LocalDateTime.now().minusDays(8)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p1).category("vital-signs").code("8480-6").codeSystem("http://loinc.org").codeDisplay("Systolic Blood Pressure")
+                .valueQuantity(148.0).valueUnit("mmHg").interpretation("H").effectiveDateTime(LocalDateTime.now().minusDays(8))
+                .status("final").issued(LocalDateTime.now().minusDays(8)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p1).category("laboratory").code("15074-8").codeSystem("http://loinc.org").codeDisplay("Glucose [Moles/volume] in Blood")
+                .valueQuantity(28.4).valueUnit("mmol/L").interpretation("HH").effectiveDateTime(LocalDateTime.now().minusDays(8))
+                .status("final").issued(LocalDateTime.now().minusDays(8)).build());
+
+        observationRepo.save(Observation.builder()
+                .patient(p1).category("laboratory").code("4548-4").codeSystem("http://loinc.org").codeDisplay("Hemoglobin A1c/Hemoglobin.total in Blood")
+                .valueQuantity(11.2).valueUnit("%").interpretation("H").effectiveDateTime(LocalDateTime.now().minusDays(8))
+                .status("final").issued(LocalDateTime.now().minusDays(8)).build());
         medRepo.save(Medication.builder()
                 .patient(p1).medicationName("Metformin").genericName("metformin hydrochloride")
                 .rxnormCode("860975").dose("1000 mg").frequency("BID").route("ORAL")

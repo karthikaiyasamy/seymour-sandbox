@@ -15,6 +15,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(securityInterceptor)
                 .addPathPatterns("/api/fhir/**", "/api/reports/**")
-                .excludePathPatterns("/.well-known/**", "/oauth/**", "/h2-console/**", "/error", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**");
+                .excludePathPatterns("/.well-known/**", "/oauth/**", "/oauth2/**", "/h2-console/**", "/error", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**");
     }
 }

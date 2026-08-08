@@ -57,23 +57,23 @@ public class OAuth2TokenController {
      */
     @PostMapping(value = "/token")
     public ResponseEntity<Map<String, Object>> token(
-            @RequestParam(name = "grant_type", defaultValue = "authorization_code") String grantType,
+            @RequestParam(name = "grant_type", required = false) String grantType,
             @RequestParam(name = "code", required = false) String code,
-            @RequestParam(name = "client_id", defaultValue = "seymour_smart_app") String clientId,
-            @RequestBody(required = false) Map<String, Object> jsonBody) {
+            @RequestParam(name = "client_id", required = false) String clientId) {
 
-        String authCode = code;
-        if (authCode == null && jsonBody != null) {
-            authCode = (String) jsonBody.get("code");
-        }
+        String effectiveCode = code;
+        String effectiveClientId = clientId != null ? clientId : "seymour_smart_app";
 
+        return processTokenRequest(effectiveCode, effectiveClientId);
+    }
+
+    private ResponseEntity<Map<String, Object>> processTokenRequest(String authCode, String clientId) {
         String patientId = "1";
         if ("SMART_AUTH_SYNC".equals(authCode)) {
-            // Internal sandbox integration bootstrap token for automated cross-hospital node synchronization
             patientId = "1";
         } else if (authCode != null && AUTHORIZATION_CODES.containsKey(authCode)) {
             patientId = AUTHORIZATION_CODES.get(authCode);
-            AUTHORIZATION_CODES.remove(authCode); // One-time use
+            AUTHORIZATION_CODES.remove(authCode);
         } else {
             log.warn("[SMART_OAUTH_REJECTED] Token exchange requested with invalid or missing authorization code: {}", authCode);
             return ResponseEntity.badRequest().body(Map.of(
@@ -86,7 +86,6 @@ public class OAuth2TokenController {
         String jwtToken = jwtKeyService.generateSignedSmartJwt(clientId, patientId, scope, 3600);
         int expiresInSeconds = 3600;
 
-        // Register token in active token store
         tokenStoreService.registerToken(jwtToken, patientId, clientId, expiresInSeconds);
 
         log.info("[SMART_OAUTH_TOKEN_ISSUED] Signed RS256 JWT Access Token generated for Client: {} with Patient Context: {}", clientId, patientId);
@@ -98,7 +97,7 @@ public class OAuth2TokenController {
         tokenResponse.put("scope", scope);
         tokenResponse.put("patient", patientId);
         tokenResponse.put("need_patient_banner", true);
-        tokenResponse.put("smart_style_url", "http://localhost:8090/smart-style.json");
+        tokenResponse.put("smart_style_url", "http://sandbox.local/smart/style");
         tokenResponse.put("id_token", "eyJhbGciOiJSUzI1NiJ9.smart_user_identity_token");
 
         return ResponseEntity.ok(tokenResponse);

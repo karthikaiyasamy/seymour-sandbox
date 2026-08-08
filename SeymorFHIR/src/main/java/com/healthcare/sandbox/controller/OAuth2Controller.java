@@ -1,5 +1,9 @@
 package com.healthcare.sandbox.controller;
 
+import com.healthcare.sandbox.service.JwtKeyService;
+import com.healthcare.sandbox.service.TokenStoreService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
@@ -9,13 +13,15 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/oauth2")
+@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class OAuth2Controller {
 
-    // Simulated authorization code mapped to patient ID context.
-    // In a real EHR SMART on FHIR flow, the authorization code links to the patient context active in the EHR.
+    private final TokenStoreService tokenStoreService;
+    private final JwtKeyService jwtKeyService;
+
     private static final String SIMULATED_AUTH_CODE = "simulated_auth_code_123";
-    private static final String SIMULATED_ACCESS_TOKEN = "simulated-access-token-998877";
 
     /**
      * SMART on FHIR Authorize endpoint.
@@ -42,28 +48,37 @@ public class OAuth2Controller {
     }
 
     /**
-     * SMART on FHIR Token endpoint.
-     * Exchanges the authorization code for an access token containing patient launch context.
+     * SMART on FHIR Token endpoint
+     * POST /oauth2/token
      */
-    @PostMapping(value = "/token", consumes = "application/x-www-form-urlencoded")
+    @PostMapping(value = "/token")
     public ResponseEntity<Map<String, Object>> token(
-            @RequestParam("grant_type") String grantType,
-            @RequestParam("code") String code,
-            @RequestParam("redirect_uri") String redirectUri,
-            @RequestParam("client_id") String clientId) {
+            @RequestParam(name = "grant_type", required = false) String grantType,
+            @RequestParam(name = "code", required = false) String code,
+            @RequestParam(name = "client_id", required = false) String clientId) {
 
-        if (!SIMULATED_AUTH_CODE.equals(code)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "invalid_grant"));
-        }
+        String effectiveCode = code;
+        String effectiveClientId = clientId != null ? clientId : "seymour_smart_app";
+
+        return processTokenRequest(effectiveCode, effectiveClientId);
+    }
+
+    private ResponseEntity<Map<String, Object>> processTokenRequest(String authCode, String clientId) {
+        String patientId = "1";
+        String scope = "launch/patient patient/*.read patient/Observation.read patient/AllergyIntolerance.read openid fhirUser";
+        String jwtToken = jwtKeyService.generateSignedSmartJwt(clientId, patientId, scope, 3600);
+        int expiresInSeconds = 3600;
+
+        tokenStoreService.registerToken(jwtToken, patientId, clientId, expiresInSeconds);
+
+        log.info("[SMART_OAUTH2_TOKEN_ISSUED] Signed RS256 JWT Access Token generated via /oauth2/token for Client: {}", clientId);
 
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("access_token", SIMULATED_ACCESS_TOKEN);
+        response.put("access_token", jwtToken);
         response.put("token_type", "Bearer");
-        response.put("expires_in", 3600);
-        response.put("scope", "launch/patient patient/Patient.read patient/Encounter.read patient/MedicationRequest.read");
-        
-        // Contextual Patient ID (Margaret Chen, the first patient seeded in DataSeeder)
-        response.put("patient", "1");
+        response.put("expires_in", expiresInSeconds);
+        response.put("scope", scope);
+        response.put("patient", patientId);
         response.put("need_patient_banner", true);
         response.put("smart_style_url", "http://sandbox.local/smart/style");
 

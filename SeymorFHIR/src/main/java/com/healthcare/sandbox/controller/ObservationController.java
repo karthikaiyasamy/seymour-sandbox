@@ -22,9 +22,12 @@ public class ObservationController {
     private final ObservationRepository observationRepo;
     private final PatientRepository patientRepo;
 
-    // GET /api/fhir/Observation — list all observations
+    // GET /api/fhir/Observation — list all observations or filter by patient query param
     @GetMapping
-    public Map<String, Object> getAllObservations() {
+    public Map<String, Object> getAllObservations(@RequestParam(name = "patient", required = false) String patientParam) {
+        if (patientParam != null && !patientParam.isEmpty()) {
+            return getObservationsByPatient(patientParam);
+        }
         List<Observation> list = observationRepo.findAll();
         return buildBundle("searchset", list.stream().map(this::toFhir).toList());
     }

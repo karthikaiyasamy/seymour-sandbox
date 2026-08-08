@@ -1,7 +1,6 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpClient, HttpParams } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -19,8 +18,8 @@ import { CommonModule } from '@angular/common';
           </div>
           <p style="color: var(--text-sub); font-size: 0.95rem;">BC Health Authority SMART App Launcher & Patient Clinical Portal</p>
         </div>
-        <button *if="!token" class="btn-primary" (click)="launchSmartAuth()">⚡ Launch SMART OAuth Handshake</button>
-        <div *if="token" class="status-badge badge-active">Bearer Token Active (RS256 JWT)</div>
+        <button *ngIf="!token" class="btn-primary" (click)="launchSmartAuth()">⚡ Launch SMART OAuth Handshake</button>
+        <div *ngIf="token" class="status-badge badge-active">Bearer Token Active (RS256 JWT)</div>
       </header>
 
       <!-- Main Grid Layout -->
@@ -29,7 +28,7 @@ import { CommonModule } from '@angular/common';
         <div class="glass-panel">
           <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--accent-cyan);">📋 Patient Demographic Context</h2>
           
-          <div *if="patient">
+          <div *ngIf="patient">
             <div style="margin-bottom: 16px;">
               <span style="color: var(--text-sub); font-size: 0.85rem; display: block;">Full Name</span>
               <strong style="font-size: 1.1rem;">{{ patient.name?.[0]?.family }}, {{ patient.name?.[0]?.given?.[0] }}</strong>
@@ -51,7 +50,7 @@ import { CommonModule } from '@angular/common';
             </div>
           </div>
 
-          <div *if="!patient" style="text-align: center; padding: 40px 0; color: var(--text-sub);">
+          <div *ngIf="!patient" style="text-align: center; padding: 40px 0; color: var(--text-sub);">
             <p>No active launch patient context.</p>
             <p style="font-size: 0.85rem; margin-top: 8px;">Click "Launch SMART OAuth Handshake" above to authenticate.</p>
           </div>
@@ -61,8 +60,8 @@ import { CommonModule } from '@angular/common';
         <div class="glass-panel">
           <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--accent-emerald);">🩸 Live LOINC Clinical Observations & Vitals</h2>
 
-          <div *if="observations.length > 0" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-            <div *for="let obs of observations" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px;">
+          <div *ngIf="observations.length > 0" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+            <div *ngFor="let obs of observations" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px;">
               <span style="color: var(--text-sub); font-size: 0.85rem; display: block; margin-bottom: 6px;">{{ obs.code?.text || obs.code?.coding?.[0]?.display }}</span>
               <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">
                 {{ obs.valueQuantity?.value }} <span style="font-size: 0.9rem; font-weight: 400; color: var(--text-sub);">{{ obs.valueQuantity?.unit }}</span>
@@ -71,7 +70,7 @@ import { CommonModule } from '@angular/common';
             </div>
           </div>
 
-          <div *if="observations.length === 0" style="text-align: center; padding: 60px 0; color: var(--text-sub);">
+          <div *ngIf="observations.length === 0" style="text-align: center; padding: 60px 0; color: var(--text-sub);">
             <p>Click "Launch SMART OAuth Handshake" to auto-discover metadata and load live patient observations from Seymour FHIR Server.</p>
           </div>
         </div>
@@ -89,29 +88,31 @@ export class AppComponent implements OnInit {
   ngOnInit() {}
 
   launchSmartAuth() {
+    console.log('Initiating SMART OAuth launch handshake...');
     // 1. SMART Discovery Request
     this.http.get<any>('http://localhost:8090/.well-known/smart-configuration').subscribe({
       next: (config) => {
         console.log('Discovered SMART Configuration:', config);
 
         // 2. Obtain Token via OAuth Token Endpoint
-        const payload = new URLSearchParams();
-        payload.set('grant_type', 'authorization_code');
-        payload.set('code', 'SMART_AUTH_SYNC');
-        payload.set('client_id', 'seymour_smart_app');
+        const tokenRequestBody = {
+          grant_type: 'authorization_code',
+          code: 'SMART_AUTH_SYNC',
+          client_id: 'seymour_smart_app'
+        };
 
-        this.http.post<any>('http://localhost:8090/oauth/token', payload.toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        }).subscribe({
+        this.http.post<any>('http://localhost:8090/oauth/token', tokenRequestBody).subscribe({
           next: (res) => {
             this.token = res.access_token;
             console.log('Obtained Signed RS256 SMART Access Token:', this.token);
             
             // 3. Query Patient Resource with Bearer Token
-            this.fetchPatientData(res.patient, this.token!);
-          }
+            this.fetchPatientData(res.patient || '1', this.token!);
+          },
+          error: (err) => console.error('OAuth Token Exchange Error:', err)
         });
-      }
+      },
+      error: (err) => console.error('SMART Discovery Error:', err)
     });
   }
 
@@ -120,16 +121,24 @@ export class AppComponent implements OnInit {
 
     // Fetch Patient Demographic Context
     this.http.get<any>(`http://localhost:8090/api/fhir/Patient/${patientId}`, { headers }).subscribe({
-      next: (data) => this.patient = data
+      next: (data) => {
+        console.log('Fetched Patient Data:', data);
+        this.patient = data;
+      },
+      error: (err) => console.error('Fetch Patient Error:', err)
     });
 
     // Fetch LOINC Vitals & Clinical Observations
     this.http.get<any>(`http://localhost:8090/api/fhir/Observation?patient=${patientId}`, { headers }).subscribe({
       next: (bundle) => {
-        if (bundle.entry) {
+        console.log('Fetched Observation Bundle:', bundle);
+        if (bundle && bundle.entry) {
           this.observations = bundle.entry.map((e: any) => e.resource);
+        } else if (Array.isArray(bundle)) {
+          this.observations = bundle;
         }
-      }
+      },
+      error: (err) => console.error('Fetch Observations Error:', err)
     });
   }
 }
