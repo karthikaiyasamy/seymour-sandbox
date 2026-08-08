@@ -191,7 +191,7 @@ export class AppComponent implements OnInit {
 
   executeSearch(cleanQuery: string) {
     const headers = { 'Authorization': `Bearer ${this.token}` };
-    console.log(`Searching Seymour FHIR Server for query: ${cleanQuery}...`);
+    console.log(`Searching Seymour Regional EHR for identifier/query: ${cleanQuery}...`);
 
     this.patient = null;
     this.observations = [];
@@ -199,8 +199,8 @@ export class AppComponent implements OnInit {
     this.empiAnalysis = null;
     this.flaggedForAudit = false;
 
-    // Search by MRN, PHN, or Name
-    this.http.get<any>(`http://localhost:8090/api/fhir/Patient?mrn=${cleanQuery}`, { headers }).subscribe({
+    // 1. First search Seymour EHR
+    this.http.get<any>(`http://localhost:8090/api/fhir/Patient?identifier=${cleanQuery}`, { headers }).subscribe({
       next: (bundle) => {
         let foundPatient: any = null;
         if (bundle && bundle.entry && bundle.entry.length > 0) {
@@ -212,12 +212,45 @@ export class AppComponent implements OnInit {
         if (foundPatient) {
           this.patient = foundPatient;
           this.fetchObservationsForPatient(foundPatient.id || '1');
+          // Automatically query Terry Fox for cross-hospital link
+          this.queryTerryFoxHapiFhir();
         } else {
-          // Direct read fallback for sandbox Patient 1
-          this.fetchPatientDataDirect('1');
+          // Seymour EHR doesn't have this PHN -> Search Terry Fox Hospital directly!
+          this.searchTerryFoxDirect(cleanQuery);
         }
       },
-      error: () => this.fetchPatientDataDirect('1')
+      error: () => this.searchTerryFoxDirect(cleanQuery)
+    });
+  }
+
+  searchTerryFoxDirect(cleanQuery: string) {
+    const headers = { 'Authorization': `Bearer ${this.token}` };
+    console.log(`Seymour EHR miss. Querying Terry Fox Hospital (Port 8085) for query: ${cleanQuery}...`);
+
+    this.http.get<any>(`http://localhost:8085/fhir/Patient?identifier=${cleanQuery}`, { headers }).subscribe({
+      next: (bundle) => {
+        let terryPat: any = null;
+        if (bundle && bundle.entry && bundle.entry.length > 0) {
+          terryPat = bundle.entry[0].resource;
+        } else if (bundle && bundle.resourceType === 'Patient') {
+          terryPat = bundle;
+        }
+
+        if (terryPat) {
+          // Found on Terry Fox specialty node!
+          this.patient = terryPat;
+          this.terryFoxData = terryPat;
+          console.log('Loaded Patient record directly from Terry Fox Oncology Node:', terryPat);
+        } else {
+          // Sandbox fallback if cleanQuery is '1' or 'MRN-10001'
+          if (cleanQuery === '1' || cleanQuery.toUpperCase().includes('MRN')) {
+            this.fetchPatientDataDirect('1');
+          } else {
+            console.warn('No patient found across any BC health node for query:', cleanQuery);
+          }
+        }
+      },
+      error: (err) => console.error('Terry Fox Search Error:', err)
     });
   }
 
