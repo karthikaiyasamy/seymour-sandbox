@@ -1,20 +1,12 @@
 package com.healthcare.sandbox.service;
 
 import com.healthcare.sandbox.model.AdtEvent;
-import com.healthcare.sandbox.model.Patient;
-import com.healthcare.sandbox.repository.PatientRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
 import com.healthcare.sandbox.model.Hl7AuditLog;
+import com.healthcare.sandbox.model.Patient;
+import com.healthcare.sandbox.model.PatientMatchReview;
 import com.healthcare.sandbox.repository.Hl7AuditLogRepository;
+import com.healthcare.sandbox.repository.PatientMatchReviewRepository;
+import com.healthcare.sandbox.repository.PatientRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,8 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.healthcare.sandbox.model.PatientMatchReview;
-import com.healthcare.sandbox.repository.PatientMatchReviewRepository;
 
 class Hl7ServiceTest {
 

@@ -24,7 +24,7 @@ This workspace showcases a regional health interoperability sandbox, demonstrati
 * **FOIPPA Data Privacy & PII Sanitization:** Custom log sanitization layers stripping raw patient JSON maps, MRNs, and patient names, logging correlation tracing IDs and masked PHNs (`900****071`) only.
 * **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing opaque Bearer tokens with active launch patient context (`patient: "1"`).
 * **Resilience & Automated CI/CD Pipeline:** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) protecting core endpoints, plus a cloud **GitHub Actions CI/CD pipeline** (`.github/workflows/ci.yml`) pinning Java 21 & .NET 10 with 30 passing unit tests.
-* **5-Minute Technical Interview Showcase:** Step-by-step interview script ([`docs/demo-script.md`](file:///Users/karthik/dev/seymour/seymour-sandbox/docs/demo-script.md)) formatted for live technical interviews at PHSA and Fraser Health.
+* **5-Minute Technical Interview Showcase:** Step-by-step interview script ([`docs/demo-script.md`](docs/demo-script.md)) formatted for live technical interviews at PHSA and Fraser Health.
 
 ---
 
@@ -76,7 +76,7 @@ dotnet run
 ## 🔒 Security & Database Seeding Guidelines
 
 To maintain privacy and follow secure open-source practices:
-* **Synthetic Data Governance:** Source control contains **version-controlled 100% synthetic seed data** and barebone SQL DDL schema files ([`V1__create_oauth_tables.sql`](file:///Users/karthik/dev/seymour/seymour-sandbox/SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). No real Personal Health Information (PHI) or production credentials/secrets are ever used or committed.
+* **Synthetic Data Governance:** Source control contains **version-controlled 100% synthetic seed data** and barebone SQL DDL schema files ([`V1__create_oauth_tables.sql`](SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). No real Personal Health Information (PHI) or production credentials/secrets are ever used or committed.
 * **Custom Dataset Seeding Instructions:** To populate custom synthetic clinical test records or OAuth test credentials locally:
   ```sql
   -- Seed pre-authorized test OAuth code locally in PostgreSQL:

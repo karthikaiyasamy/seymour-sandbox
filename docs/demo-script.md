@@ -97,7 +97,7 @@ This script provides an exact, step-by-step 5-minute technical demo script desig
 1. **Show Resilience4j Bulkhead Fallback:**
    Trigger high-concurrency export query `GET /api/reports/heavy-export/1`. Show standard FHIR `OperationOutcome` with `HTTP 429 Too Many Requests`.
 2. **Show GitHub Actions Pipeline:**
-   Highlight `.github/workflows/ci.yml` running Java 21 & .NET 10 builds with 28 passing unit tests.
+   Highlight `.github/workflows/ci.yml` running Java 21 & .NET 10 builds with 30 passing unit tests.
 
 ---
 
