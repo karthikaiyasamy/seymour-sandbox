@@ -33,6 +33,9 @@ public class TerryFoxHapiServerConfig {
     @Autowired
     private TerryFoxAuditInterceptor auditInterceptor;
 
+    @Autowired
+    private com.terryfox.hospital.interceptor.TerryFoxSecurityInterceptor securityInterceptor;
+
     @Bean
     public ServletRegistrationBean<RestfulServer> fhirServlet() {
         RestfulServer server = new RestfulServer(FhirContext.forR4());
@@ -50,6 +53,7 @@ public class TerryFoxHapiServerConfig {
         ));
 
         server.getInterceptorService().registerInterceptor(auditInterceptor);
+        server.getInterceptorService().registerInterceptor(securityInterceptor);
 
         ServletRegistrationBean<RestfulServer> registration = new ServletRegistrationBean<>(server, "/fhir/*");
         registration.setName("TerryFoxHapiFhirServlet");

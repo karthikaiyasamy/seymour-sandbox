@@ -56,9 +56,22 @@ import { CommonModule } from '@angular/common';
           </div>
         </div>
 
-        <!-- Right Column: Clinical Vitals & Lab Observations -->
+        <!-- Right Column: Clinical Vitals & Lab Observations + Terry Fox Cross-Hospital Section -->
         <div class="glass-panel">
-          <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: var(--accent-emerald);">🩸 Live LOINC Clinical Observations & Vitals</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 1.2rem; font-weight: 600; color: var(--accent-emerald);">🩸 Live LOINC Clinical Observations & Vitals</h2>
+            <button *ngIf="token" class="btn-primary" style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); font-size: 0.85rem; padding: 6px 14px;" (click)="queryTerryFoxHapiFhir()">
+              🔬 Query Terry Fox HAPI FHIR Node (Port 8085)
+            </button>
+          </div>
+
+          <div *ngIf="terryFoxData" style="background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.25); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span class="status-badge badge-active" style="background: rgba(236,72,153,0.2); color: #f472b6;">Cross-Hospital JWKS Verified</span>
+              <strong style="color: #f472b6; font-size: 0.95rem;">Terry Fox Oncology Record (Port 8085)</strong>
+            </div>
+            <pre style="color: var(--text-sub); font-size: 0.8rem; margin: 0; white-space: pre-wrap;">{{ terryFoxData | json }}</pre>
+          </div>
 
           <div *ngIf="observations.length > 0" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
             <div *ngFor="let obs of observations" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px;">
@@ -82,10 +95,27 @@ export class AppComponent implements OnInit {
   token: string | null = null;
   patient: any = null;
   observations: any[] = [];
+  terryFoxData: any = null;
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {}
+
+  queryTerryFoxHapiFhir() {
+    if (!this.token) return;
+    const headers = { 'Authorization': `Bearer ${this.token}` };
+    console.log('Querying Terry Fox HAPI FHIR Server on Port 8085 with Seymour RS256 Bearer Token...');
+    this.http.get<any>('http://localhost:8085/fhir/Patient/1', { headers }).subscribe({
+      next: (data) => {
+        console.log('Terry Fox HAPI FHIR Response (JWKS Verified):', data);
+        this.terryFoxData = data;
+      },
+      error: (err) => {
+        console.error('Terry Fox HAPI FHIR Error:', err);
+        this.terryFoxData = { error: 'Authorization / JWKS verification failed', details: err.message };
+      }
+    });
+  }
 
   launchSmartAuth() {
     console.log('Initiating SMART OAuth launch handshake...');
