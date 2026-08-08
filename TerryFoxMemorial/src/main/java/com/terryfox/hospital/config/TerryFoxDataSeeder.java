@@ -31,6 +31,41 @@ public class TerryFoxDataSeeder implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("[TERRY-FOX-SEEDER] Initializing synthetic BC Oncology & Clinical Trial datasets...");
 
+        // 0. Patient: Margaret Chen (Stage IIIA Non-Small Cell Lung Cancer - EMPI Identity Link to Seymour)
+        PatientEntity margaret = PatientEntity.builder()
+                .phn("MRN-10001") // Matching Seymour PHN
+                .mrn("TF-ONC-2026-000")
+                .givenName("Margaret A.")
+                .familyName("Chen")
+                .birthDate(LocalDate.of(1948, 3, 15)) // ⚠️ 3-Day DOB Discrepancy from Seymour's 1948-03-12
+                .gender("female")
+                .addressLine("145 Maple Street")
+                .city("Vancouver")
+                .state("BC")
+                .postalCode("V6J 2P3")
+                .phone("604-555-0188")
+                .primaryOncologist("Dr. Evelyn Vance, MD (Oncology)")
+                .build();
+        patientRepository.save(margaret);
+
+        // Margaret's Oncology Staging Condition (mCODE)
+        OncologyConditionEntity margaretCancer = OncologyConditionEntity.builder()
+                .patient(margaret)
+                .diagnosisCode("C34.1")
+                .diagnosisDisplay("Malignant neoplasm of upper lobe, bronchus or lung")
+                .codeSystem("http://hl7.org/fhir/sid/icd-10")
+                .clinicalStatus("active")
+                .verificationStatus("confirmed")
+                .tnmStageGroup("Stage IIIA")
+                .primaryTumorCategory("T2")
+                .regionalNodesCategory("N2")
+                .distantMetastasisCategory("M0")
+                .anatomicalSite("Right Upper Lobe Lung")
+                .onsetDate(LocalDate.of(2025, 10, 5))
+                .recordedDate(LocalDate.of(2025, 10, 10))
+                .build();
+        conditionRepository.save(margaretCancer);
+
         // 1. Patient: Sarah Jenkins (Stage IIIb Non-Small Cell Lung Cancer)
         PatientEntity sarah = PatientEntity.builder()
                 .phn("9234567897") // Valid BC PHN Modulus-11

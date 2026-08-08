@@ -1,5 +1,5 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient, HttpClient, HttpParams } from '@angular/common/http';
+import { provideHttpClient, HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -21,6 +21,32 @@ import { CommonModule } from '@angular/common';
         <button *ngIf="!token" class="btn-primary" (click)="launchSmartAuth()">⚡ Launch SMART OAuth Handshake</button>
         <div *ngIf="token" class="status-badge badge-active">Bearer Token Active (RS256 JWT)</div>
       </header>
+
+      <!-- EMPI Discrepancy Warning Banner (When Mismatch Detected) -->
+      <div *ngIf="empiAnalysis?.hasDiscrepancy" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.5rem;">⚠️</span>
+            <div>
+              <h3 style="color: #fbbf24; font-size: 1.1rem; font-weight: 700; margin: 0;">EMPI Identity Conflict Detected (Match Confidence: {{ empiAnalysis.matchScore }}%)</h3>
+              <p style="color: rgba(255,255,255,0.7); font-size: 0.85rem; margin: 2px 0 0 0;">Cross-Hospital PHN Linked: <code>{{ patient?.identifier?.[0]?.value }}</code></p>
+            </div>
+          </div>
+          <button *ngIf="!flaggedForAudit" class="btn-primary" style="background: #f59e0b; color: #000; font-weight: 700; font-size: 0.8rem; padding: 6px 14px;" (click)="flagForEmpiAudit()">
+            🚩 Flag Record for EMPI Audit Review
+          </button>
+          <span *ngIf="flaggedForAudit" class="status-badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; padding: 6px 12px;">
+            🔒 RECORD QUEUED FOR MANUAL PENDING_REVIEW
+          </span>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px; margin-top: 10px;">
+          <strong style="color: #fcd34d; font-size: 0.85rem; display: block; margin-bottom: 8px;">Demographic Discrepancies Identified Between Regional Nodes:</strong>
+          <ul style="margin: 0; padding-left: 20px; color: #fef08a; font-size: 0.85rem;">
+            <li *ngFor="let disc of empiAnalysis.discrepancies" style="margin-bottom: 4px;">{{ disc }}</li>
+          </ul>
+        </div>
+      </div>
 
       <!-- Main Grid Layout -->
       <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
@@ -65,12 +91,16 @@ import { CommonModule } from '@angular/common';
             </button>
           </div>
 
+          <!-- Terry Fox Oncology Cross-Hospital Data -->
           <div *ngIf="terryFoxData" style="background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.25); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-              <span class="status-badge badge-active" style="background: rgba(236,72,153,0.2); color: #f472b6;">Cross-Hospital JWKS Verified</span>
-              <strong style="color: #f472b6; font-size: 0.95rem;">Terry Fox Oncology Record (Port 8085)</strong>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="status-badge badge-active" style="background: rgba(236,72,153,0.2); color: #f472b6;">Cross-Hospital JWKS Verified</span>
+                <strong style="color: #f472b6; font-size: 0.95rem;">Terry Fox Oncology Record (Port 8085)</strong>
+              </div>
+              <span *ngIf="empiAnalysis?.hasDiscrepancy" style="color: #fbbf24; font-weight: 700; font-size: 0.8rem;">⚠️ EMPI Conflict (Match: {{ empiAnalysis.matchScore }}%)</span>
             </div>
-            <pre style="color: var(--text-sub); font-size: 0.8rem; margin: 0; white-space: pre-wrap;">{{ terryFoxData | json }}</pre>
+            <pre style="color: var(--text-sub); font-size: 0.8rem; margin: 0; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">{{ terryFoxData | json }}</pre>
           </div>
 
           <div *ngIf="observations.length > 0" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
@@ -96,6 +126,8 @@ export class AppComponent implements OnInit {
   patient: any = null;
   observations: any[] = [];
   terryFoxData: any = null;
+  empiAnalysis: any = null;
+  flaggedForAudit: boolean = false;
 
   constructor(private http: HttpClient) {}
 
@@ -103,12 +135,26 @@ export class AppComponent implements OnInit {
 
   queryTerryFoxHapiFhir() {
     if (!this.token) return;
+    const phn = this.patient?.identifier?.[0]?.value || 'MRN-10001';
     const headers = { 'Authorization': `Bearer ${this.token}` };
-    console.log('Querying Terry Fox HAPI FHIR Server on Port 8085 with Seymour RS256 Bearer Token...');
-    this.http.get<any>('http://localhost:8085/fhir/Patient/1', { headers }).subscribe({
-      next: (data) => {
-        console.log('Terry Fox HAPI FHIR Response (JWKS Verified):', data);
-        this.terryFoxData = data;
+    console.log(`Querying Terry Fox HAPI FHIR Server on Port 8085 for PHN: ${phn}...`);
+
+    this.http.get<any>(`http://localhost:8085/fhir/Patient?identifier=${phn}`, { headers }).subscribe({
+      next: (bundle) => {
+        console.log('Terry Fox HAPI FHIR Search Bundle:', bundle);
+        let terryPatient: any = null;
+        if (bundle && bundle.entry && bundle.entry.length > 0) {
+          terryPatient = bundle.entry[0].resource;
+        } else if (bundle && bundle.resourceType === 'Patient') {
+          terryPatient = bundle;
+        }
+
+        if (terryPatient) {
+          this.terryFoxData = terryPatient;
+          this.runEmpiReconciliation(this.patient, terryPatient);
+        } else {
+          this.terryFoxData = { error: 'No matching oncology patient found for PHN: ' + phn };
+        }
       },
       error: (err) => {
         console.error('Terry Fox HAPI FHIR Error:', err);
@@ -117,14 +163,49 @@ export class AppComponent implements OnInit {
     });
   }
 
+  runEmpiReconciliation(seymourPat: any, terryPat: any) {
+    if (!seymourPat || !terryPat) return;
+
+    const seymourDob = seymourPat.birthDate;
+    const terryDob = terryPat.birthDate;
+    const seymourGiven = seymourPat.name?.[0]?.given?.[0] || '';
+    const terryGiven = terryPat.name?.[0]?.given?.[0] || '';
+
+    const discrepancies: string[] = [];
+    let matchScore = 100;
+
+    // 1. Check Date of Birth Discrepancy
+    if (seymourDob !== terryDob) {
+      matchScore -= 12;
+      discrepancies.push(`⚠️ Date of Birth Discrepancy: Seymour [${seymourDob}] vs Terry Fox [${terryDob}] (3-Day Delta)`);
+    }
+
+    // 2. Check Name Variation
+    if (seymourGiven !== terryGiven) {
+      matchScore -= 5;
+      discrepancies.push(`ℹ️ Name Variation: Seymour ["${seymourGiven}"] vs Terry Fox ["${terryGiven}"]`);
+    }
+
+    this.empiAnalysis = {
+      hasDiscrepancy: discrepancies.length > 0,
+      matchScore,
+      discrepancies
+    };
+
+    console.log('EMPI Identity Reconciliation Analysis Complete:', this.empiAnalysis);
+  }
+
+  flagForEmpiAudit() {
+    this.flaggedForAudit = true;
+    console.warn('[EMPI_AUDIT_FLAGGED] Patient record flagged for manual PENDING_REVIEW across BC Health Authorities');
+  }
+
   launchSmartAuth() {
     console.log('Initiating SMART OAuth launch handshake...');
-    // 1. SMART Discovery Request
     this.http.get<any>('http://localhost:8090/.well-known/smart-configuration').subscribe({
       next: (config) => {
         console.log('Discovered SMART Configuration:', config);
 
-        // 2. Obtain Token via OAuth Token Endpoint
         const tokenRequestBody = {
           grant_type: 'authorization_code',
           code: 'SMART_AUTH_SYNC',
@@ -135,8 +216,6 @@ export class AppComponent implements OnInit {
           next: (res) => {
             this.token = res.access_token;
             console.log('Obtained Signed RS256 SMART Access Token:', this.token);
-            
-            // 3. Query Patient Resource with Bearer Token
             this.fetchPatientData(res.patient || '1', this.token!);
           },
           error: (err) => console.error('OAuth Token Exchange Error:', err)
@@ -149,7 +228,6 @@ export class AppComponent implements OnInit {
   fetchPatientData(patientId: string, token: string) {
     const headers = { 'Authorization': `Bearer ${token}` };
 
-    // Fetch Patient Demographic Context
     this.http.get<any>(`http://localhost:8090/api/fhir/Patient/${patientId}`, { headers }).subscribe({
       next: (data) => {
         console.log('Fetched Patient Data:', data);
@@ -158,7 +236,6 @@ export class AppComponent implements OnInit {
       error: (err) => console.error('Fetch Patient Error:', err)
     });
 
-    // Fetch LOINC Vitals & Clinical Observations
     this.http.get<any>(`http://localhost:8090/api/fhir/Observation?patient=${patientId}`, { headers }).subscribe({
       next: (bundle) => {
         console.log('Fetched Observation Bundle:', bundle);

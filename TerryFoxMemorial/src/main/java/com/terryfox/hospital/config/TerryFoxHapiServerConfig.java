@@ -52,6 +52,14 @@ public class TerryFoxHapiServerConfig {
                 diagnosticReportResourceProvider
         ));
 
+        org.springframework.web.cors.CorsConfiguration corsConfig = new org.springframework.web.cors.CorsConfiguration();
+        corsConfig.addAllowedHeader("*");
+        corsConfig.addAllowedMethod("*");
+        corsConfig.addAllowedOriginPattern("*");
+        corsConfig.setAllowCredentials(false);
+        ca.uhn.fhir.rest.server.interceptor.CorsInterceptor corsInterceptor = new ca.uhn.fhir.rest.server.interceptor.CorsInterceptor(corsConfig);
+        server.registerInterceptor(corsInterceptor);
+
         server.getInterceptorService().registerInterceptor(auditInterceptor);
         server.getInterceptorService().registerInterceptor(securityInterceptor);
 
