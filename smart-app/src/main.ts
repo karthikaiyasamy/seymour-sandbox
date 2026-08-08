@@ -10,7 +10,7 @@ import { CommonModule } from '@angular/common';
   template: `
     <div style="max-width: 1200px; margin: 0 auto; padding: 40px 20px;">
       <!-- Header Banner -->
-      <header class="glass-panel" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <header class="glass-panel" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <div>
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
             <h1 style="font-size: 1.6rem; font-weight: 700;">Seymour Regional EHR</h1>
@@ -21,6 +21,28 @@ import { CommonModule } from '@angular/common';
         <button *ngIf="!token" class="btn-primary" (click)="launchSmartAuth()">⚡ Launch SMART OAuth Handshake</button>
         <div *ngIf="token" class="status-badge badge-active">Bearer Token Active (RS256 JWT)</div>
       </header>
+
+      <!-- Patient Search & Quick Select Bar (Visible When Authenticated) -->
+      <div *ngIf="token" class="glass-panel" style="margin-bottom: 24px; padding: 16px 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 320px;">
+            <span style="font-size: 1.1rem;">🔍</span>
+            <input type="text" #searchInput (keyup.enter)="searchPatient(searchInput.value)" placeholder="Search Patient by PHN / MRN / Name (e.g. MRN-10001, 9234567897, Chen)..." style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 14px; color: #fff; font-size: 0.9rem;" />
+            <button class="btn-primary" style="font-size: 0.85rem; padding: 8px 16px; white-space: nowrap;" (click)="searchPatient(searchInput.value)">
+              Search Patient
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 0.8rem; color: var(--text-sub);">Quick Select:</span>
+            <button class="status-badge" style="cursor: pointer; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);" (click)="selectPatientByMrn('MRN-10001')">
+              👤 Margaret Chen (EMPI Delta Test)
+            </button>
+            <button class="status-badge" style="cursor: pointer; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);" (click)="selectPatientByMrn('9234567897')">
+              👤 Sarah Jenkins (Oncology)
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- EMPI Discrepancy Warning Banner (When Mismatch Detected) -->
       <div *ngIf="empiAnalysis?.hasDiscrepancy" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 20px; margin-bottom: 30px;">
@@ -132,6 +154,42 @@ export class AppComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {}
+
+  selectPatientByMrn(mrn: string) {
+    this.searchPatient(mrn);
+  }
+
+  searchPatient(query: string) {
+    if (!query || !query.trim() || !this.token) return;
+    const cleanQuery = query.trim();
+    const headers = { 'Authorization': `Bearer ${this.token}` };
+    console.log(`Searching Seymour FHIR Server for query: ${cleanQuery}...`);
+
+    this.terryFoxData = null;
+    this.empiAnalysis = null;
+    this.flaggedForAudit = false;
+
+    // Search by MRN, PHN, or Name
+    this.http.get<any>(`http://localhost:8090/api/fhir/Patient?mrn=${cleanQuery}`, { headers }).subscribe({
+      next: (bundle) => {
+        let foundPatient: any = null;
+        if (bundle && bundle.entry && bundle.entry.length > 0) {
+          foundPatient = bundle.entry[0].resource;
+        } else if (bundle && bundle.resourceType === 'Patient') {
+          foundPatient = bundle;
+        }
+
+        if (foundPatient) {
+          this.patient = foundPatient;
+          this.fetchObservationsForPatient(foundPatient.id || '1', this.token!);
+        } else {
+          // Direct read fallback
+          this.fetchPatientData(cleanQuery, this.token!);
+        }
+      },
+      error: () => this.fetchPatientData('1', this.token!)
+    });
+  }
 
   queryTerryFoxHapiFhir() {
     if (!this.token) return;
@@ -246,9 +304,14 @@ export class AppComponent implements OnInit {
       next: (data) => {
         console.log('Fetched Patient Data:', data);
         this.patient = data;
+        this.fetchObservationsForPatient(patientId, token);
       },
       error: (err) => console.error('Fetch Patient Error:', err)
     });
+  }
+
+  fetchObservationsForPatient(patientId: string, token: string) {
+    const headers = { 'Authorization': `Bearer ${token}` };
 
     this.http.get<any>(`http://localhost:8090/api/fhir/Observation?patient=${patientId}`, { headers }).subscribe({
       next: (bundle) => {
@@ -257,6 +320,8 @@ export class AppComponent implements OnInit {
           this.observations = bundle.entry.map((e: any) => e.resource);
         } else if (Array.isArray(bundle)) {
           this.observations = bundle;
+        } else {
+          this.observations = [];
         }
       },
       error: (err) => console.error('Fetch Observations Error:', err)
