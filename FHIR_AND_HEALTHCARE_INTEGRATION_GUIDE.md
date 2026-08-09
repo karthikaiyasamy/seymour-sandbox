@@ -177,9 +177,12 @@ Connecting external applications to provincial health endpoints (HIBC, BC Client
                ├─── 2. POST /auth Token Request (client_id + signed JWT Assertion) ──►│
                │                                                                      │
                │◄── 3. Returns OAuth2 Bearer Access Token ────────────────────────────┤
+```
+
 Regional health systems enforce strict system-to-system security boundaries using Mutual TLS (mTLS) for transport-layer security and OAuth2 Client Credentials grant flows for API authentication.
 
 ---
+
 
 ## 6. Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic
 
