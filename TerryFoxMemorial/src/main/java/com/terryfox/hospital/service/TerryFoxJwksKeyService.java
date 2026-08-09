@@ -72,6 +72,7 @@ public class TerryFoxJwksKeyService {
             return keyCache.get(keyId);
         }
 
+        log.warn("[JWKS_CACHE_EVICT] Unknown keyId [{}] presented in JWT header. Evicting cache and re-fetching JWKS from Seymour Auth Server...", keyId);
         refreshJwksCache();
 
         if (keyId != null) {
