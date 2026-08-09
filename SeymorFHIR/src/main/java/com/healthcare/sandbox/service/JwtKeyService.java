@@ -54,7 +54,7 @@ public class JwtKeyService {
      * Checks PostgreSQL database for active key; if not found, generates and persists a new KeyPair.
      * 
      * PRODUCTION ARCHITECTURE NOTE:
-     * In enterprise production environments (such as PHSA or Fraser Health), private RSA keys are 
+     * In enterprise production environments (such as regional health authority networks), private RSA keys are 
      * NOT generated dynamically in RAM on JVM startup. Instead, load keys using one of the following patterns:
      * 
      * 1. Cloud Key Vault: Fetch RSA Private/Public PEM keys from AWS Secrets Manager, 

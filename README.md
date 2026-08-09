@@ -1,148 +1,159 @@
-# Healthcare Sandbox — Regional Interoperability & FHIR Workspace
+# Enterprise Regional Healthcare Interoperability & Federated Security Sandbox
 
-A healthcare interoperability sandbox demonstrating a regional HL7 v2-to-FHIR integration workflow across **Java (Spring Boot / HAPI FHIR R4)** and **C# (.NET 10)** services, with synthetic clinical data, security and resilience patterns, and explicit production hardening considerations for British Columbia (BC) health authority architectures.
+A comprehensive, production-grade regional healthcare sandbox demonstrating federated clinical data exchange, **SMART-on-FHIR v2.0 authorization**, **zero-downtime RSA key rotation**, **JWKS public key verification**, **Enterprise Master Patient Index (EMPI) identity reconciliation**, and **mCODE oncology data models** across **Java 21 (Spring Boot & HAPI FHIR R4)**, **C# (.NET 10)**, and **Angular 17 SPA**.
 
-> ⚠️ **IMPORTANT EDUCATIONAL DISCLAIMER**:  
-> **This repository is an open-source developer learning sandbox designed exclusively for learning healthcare software engineering, HL7 v2 messaging, HAPI FHIR R4 standards, and BC identity governance (Modulus-11 PHN validation). All patient names, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial data are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
+> ⚠️ **IMPORTANT EDUCATIONAL & SYNTHETIC DATA DISCLAIMER**:  
+> **This repository is an open-source engineering reference implementation designed for learning enterprise healthcare architecture, HL7 v2 messaging, FHIR R4 specifications, and regional identity governance. All patient records, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial datasets are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
 
-> 📘 **Looking for deep integration engineering documentation?**  
-> Read the complete guide: **[FHIR & Healthcare Integration Engineering Masterclass](https://github.com/karthikaiyasamy/seymour-sandbox/blob/main/FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)** covering HL7 v2 vs FHIR R4, Canadian Baseline, BC PHN checksum algorithms, SMART-on-FHIR, and dual-stack Java/C# patterns.
-
----
-
-## What This Demonstrates
-
-This workspace showcases a regional health interoperability sandbox, demonstrating both Java and C# enterprise backend development in a multi-stack healthcare system.
-
-### Key Integration Capabilities
-* **Hybrid Technology Stack:** Dual-stack integration featuring a Java Spring Boot clinical backend (`Seymour Regional EHR`), a C# .NET 10 Web API registration gateway (`Langley General`), a specialized HAPI FHIR R4 oncology server (`Terry Fox Cancer Hospital`), and PostgreSQL databases.
-* **FHIR R4 Resource Suite & HAPI Providers:** Support for `Patient`, `Encounter`, `Observation` (LOINC-coded vitals/labs), `AllergyIntolerance` (SNOMED-coded allergies), `MedicationRequest`, `ResearchStudy`, and `ResearchSubject`.
-* **Reliable HL7 Message Audit & MSH-10 Idempotency:** Full message lifecycle tracking (`RECEIVED` $\rightarrow$ `VALIDATED` $\rightarrow$ `TRANSFORMED` $\rightarrow$ `DELIVERED` / `FAILED`). Enforces duplicate payload rejection via **SHA-256 payload hashing** and `MSH-10` Message Control ID tracking.
-* **Patient Identity Conflict Resolution:** Multi-field demographic match scoring engine (0.0 to 1.0) using MRN, PHN, name, and DOB. Automatically halts patient creation on ambiguous match scores (0.35 - 0.85) and queues records in a dedicated `PENDING_REVIEW` human conflict resolution queue (`PatientMatchReviewController`).
-* **Atomic FHIR Bundle Processing:** FHIR `transaction` and `batch` processing engine (`POST /api/fhir` in Java, `POST /fhir` in C#) enforcing Spring `TransactionAspectSupport.setRollbackOnly()` database rollback on entry failures.
-* **BC-Standard Identity Validation (Modulus-11):** Implementation of the official British Columbia Personal Health Number (PHN) check digit validation algorithm in both Java and C# utility layers, verifying checksums and rejecting invalid cards.
-* **FOIPPA Data Privacy & PII Sanitization:** Custom log sanitization layers stripping raw patient JSON maps, MRNs, and patient names, logging correlation tracing IDs and masked PHNs (`900****071`) only.
-* **SMART on FHIR OAuth2 App-Launch Auth:** OAuth2 authorization code grant flow simulation (`GET /oauth/authorize` & `POST /oauth/token`) issuing opaque Bearer tokens with active launch patient context (`patient: "1"`).
-* **Resilience & Automated CI/CD Pipeline:** Semaphore Bulkhead concurrency protection (`HeavyReportService.java`) protecting core endpoints, plus a cloud **GitHub Actions CI/CD pipeline** (`.github/workflows/ci.yml`) pinning Java 21 & .NET 10 with 30 passing unit tests.
-* **5-Minute Technical Interview Showcase:** Step-by-step interview script ([`docs/demo-script.md`](docs/demo-script.md)) formatted for live technical interviews at PHSA and Fraser Health.
+> 📘 **Architectural Masterclass Documentation:**  
+> Read the complete architectural deep-dives:
+> - **[FHIR & Healthcare Integration Engineering Masterclass](FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)**
+> - **[Regional Health Federated Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)**
 
 ---
 
-## Prerequisites
-- **Java 21+** & **Maven 3.8+**
-- **.NET 10.0 SDK**
-- **PostgreSQL** (running locally on port 5432)
+## 🏛️ System Architecture Overview
+
+The sandbox simulates a regional health authority ecosystem composed of four microservices and a clinical frontend:
+
+```
+                               ┌─────────────────────────────────────────────────────────┐
+                               │                Seymour Regional EHR                     │
+                               │          (Java 21 / Spring Boot 3.2.5)                  │
+                               │  Port: 8090 | DB: seymour_db (PostgreSQL / Flyway)      │
+                               │  - Persistent RSA Key Store (`oauth_keys`)              │
+                               │  - Live Key Rotation (`/api/admin/rotate-keys`)         │
+                               │  - JWKS Endpoint (`/.well-known/jwks.json`)             │
+                               └──────────────────────────┬──────────────────────────────┘
+                                                          │
+                                                          │ Cross-Hospital JWKS & Bearer JWT Verification
+                                                          ▼
+┌─────────────────────────────────────────┐   ┌─────────────────────────────────────────┐
+│     ANGULAR SMART CLINICAL PORTAL       │   │    TERRY FOX CANCER HOSPITAL NODE       │
+│        (Angular 17 / Port 4200 / SPA)   │   │    (Java 21 / HAPI FHIR R4 Engine)      │
+│  - Search Directory & Quick Selection   │   │  Port: 8085                             │
+│  - Cross-Node Federated Patient Search  │──▶│  - Native HAPI RestfulServer            │
+│  - EMPI Identity Reconciliation Engine  │   │  - `kid`-Driven JWKS Cache Eviction     │
+│  - Emergency Key Rotation Trigger Button│   │  - mCODE Oncology & Genomics Suite      │
+└─────────────────────────────────────────┘   └─────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+┌─────────────────────────────────────────┐   ┌─────────────────────────────────────────┐
+│        LANGLEY GENERAL GATEWAY          │   │   LANGLEY CHILDREN'S HOSPITAL BACKEND   │
+│         (C# / .NET 10 Web API)          │   │         (Java / Spring Boot)            │
+│  Port: 8083                             │   │  Port: 8081                             │
+│  - C# FHIR R4 Controllers & Bundles     │   │  - Pediatric Sync Webhooks              │
+│  - Raw HL7 v2 Segment Ingestion         │   │  - Modulus-11 PHN Checksum Logic        │
+└─────────────────────────────────────────┘   └─────────────────────────────────────────┘
+```
 
 ---
 
-## Quick Start
+## 🔥 Key Technical & Architectural Features
 
-### 🐳 Option A: One-Command Launch via Docker Compose (Recommended)
-Spin up the entire regional health infrastructure (PostgreSQL database, Seymour FHIR Server, Terry Fox Cancer Center, and Langley General C# Gateway) using Docker Compose:
+### 1. Persistent RSA Key Store & Zero-Downtime Key Rotation
+- **PostgreSQL Key Store (`oauth_keys`):** RSA keypairs are serialized via PKCS#8 / X.509 PEM standards and stored in PostgreSQL, ensuring active signing keys survive server restarts.
+- **On-Demand Key Rotation (`POST /api/admin/rotate-keys`):** Seymour Auth Server generates fresh 2048-bit RSA keypairs on demand, updating its active signing key and publishing updated public keys via `/.well-known/jwks.json`.
+- **Dynamic `kid` Cache Eviction:** Terry Fox HAPI FHIR Node inspects incoming JWT headers for `kid` (Key ID). Encountering an unmapped key ID automatically triggers a cache eviction and re-fetch from Seymour's JWKS endpoint with zero downtime.
+
+### 2. Cross-Hospital Federated Authorization & JWKS
+- **Stateless Bearer JWT Verification:** Remote resource servers verify RS256 Bearer tokens statelessly using public keys fetched from Seymour's JWKS endpoint.
+- **HAPI FHIR Security Interceptor:** Implements HAPI's `@Hook(Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLED)` void hook to enforce Bearer token validation and CORS pre-flight bypassing.
+
+### 3. Enterprise Master Patient Index (EMPI) Reconciliation
+- **Demographic Discrepancy Detection:** When cross-hospital records share a unique PHN/MRN identifier but contain minor demographic deltas (e.g. 3-day Date of Birth discrepancy), the system calculates a match confidence score.
+- **Interactive Discrepancy Flagging:** The UI highlights specific demographic conflicts and provides a **"Flag for EMPI Audit Review"** action to queue records for administrative review.
+
+### 4. Search-Driven Clinical Portal & Cross-Node Federated Search
+- **Search-First Workflow:** No patient record is auto-populated on page load. Clinicians enter a PHN, MRN, or Name into the Search Directory.
+- **Federated Fallback Search:** Searches primary EHR node first (`Seymour EHR`), automatically falling back to regional specialty nodes (`Terry Fox Cancer Hospital`) if unmapped.
+
+### 5. Standard-Compliant FHIR R4 & mCODE Oncology
+- **Resource Suite:** Implements `Patient`, `Encounter`, `Observation` (LOINC-coded vitals/labs), `AllergyIntolerance` (SNOMED-coded allergies), `MedicationRequest`, `Condition` (mCODE TNM Staging), `ResearchStudy`, `ResearchSubject`, and `DiagnosticReport` (Genomic Biomarkers).
+- **Atomic FHIR Bundles:** Transaction and batch processing enforcing database rollbacks on entry failures.
+
+---
+
+## 🛠️ Microservice Directory & API Summary
+
+| Module | Stack | Port | Primary Responsibilities |
+| :--- | :--- | :--- | :--- |
+| **`SeymorFHIR`** | Java 21 / Spring Boot 3.2 | `8090` | Primary EHR Node, Custom FHIR R4 APIs, PostgreSQL Key Store (`oauth_keys`), Live Key Rotation (`/api/admin/rotate-keys`), SMART OAuth (`/oauth/token`), JWKS (`/.well-known/jwks.json`). |
+| **`TerryFoxMemorial`** | Java 21 / HAPI FHIR R4 | `8085` | Regional Specialty Oncology Node, Native HAPI `RestfulServer`, `kid`-Driven JWKS Cache Eviction, mCODE Cancer Staging & Genomics. |
+| **`smart-app`** | Angular 17 / TypeScript | `4200` | Search-Driven Clinical Portal, SMART OAuth Handshake, EMPI Reconciliation Engine, Live Key Rotation Simulator. |
+| **`LangleyGeneralGateway`** | C# / .NET 10 | `8083` | Dual-Stack Gateway, C# FHIR R4 APIs & Bundles, Raw HL7 v2 Segment Ingestion. |
+| **`langley-backend`** | Java 21 / Spring Boot | `8081` | Pediatric Portal Backend, Inbound Sync Webhooks, Modulus-11 PHN Checksum Logic. |
+
+---
+
+## 🚀 Quick Start & Local Deployment
+
+### Option A: Docker Compose (Recommended)
+Spin up PostgreSQL, Seymour EHR, Terry Fox HAPI Server, Langley Gateway, and the Angular Portal in a single command:
 
 ```bash
 docker-compose up --build
 ```
-> **🌐 Centralized API Developer Portal:** Once running, navigate your browser to **`http://localhost:8090/swagger-ui.html`** to explore and test all APIs across the regional health network.
+
+Access Points:
+- **Angular SMART Portal:** `http://localhost:4200`
+- **Seymour EHR Swagger UI:** `http://localhost:8090/swagger-ui.html`
+- **Terry Fox HAPI Capability Statement:** `http://localhost:8085/fhir/metadata`
 
 ---
 
-### 💻 Option B: Manual Local Terminal Launch
+### Option B: Local Terminal Launch
 
-#### 1. Build and Run Java Backends
+#### 1. Build Java Microservices
 ```bash
-# Build all Java modules
 mvn clean package -DskipTests
-
-# Run Seymour FHIR Server (Java - Port 8090)
-cd SeymorFHIR && mvn spring-boot:run
-
-# Run Terry Fox Memorial Hospital HAPI FHIR Server (Java - Port 8085)
-cd TerryFoxMemorial && mvn spring-boot:run
-
-# Run Langley Children's Hospital Backend (Java - Port 8081)
-cd LangleyChildrensHospital/langley-backend && mvn spring-boot:run
 ```
 
-#### 2. Build and Run C# Gateway
+#### 2. Start Seymour Regional EHR (Port 8090)
 ```bash
-# Run Langley General Gateway (C# - Port 8083)
-cd LangleyGeneralGateway
-dotnet run
+cd SeymorFHIR
+mvn spring-boot:run
+```
+
+#### 3. Start Terry Fox HAPI FHIR Server (Port 8085)
+```bash
+cd TerryFoxMemorial
+mvn spring-boot:run
+```
+
+#### 4. Start Angular SMART Portal (Port 4200)
+```bash
+cd smart-app
+npm start
 ```
 
 ---
 
-## 🔒 Security & Database Seeding Guidelines
-
-To maintain privacy and follow secure open-source practices:
-* **Synthetic Data Governance:** Source control contains **version-controlled 100% synthetic seed data** and barebone SQL DDL schema files ([`V1__create_oauth_tables.sql`](SeymorFHIR/src/main/resources/db/migration/V1__create_oauth_tables.sql)). No real Personal Health Information (PHI) or production credentials/secrets are ever used or committed.
-* **Custom Dataset Seeding Instructions:** To populate custom synthetic clinical test records or OAuth test credentials locally:
-  ```sql
-  -- Seed pre-authorized test OAuth code locally in PostgreSQL:
-  INSERT INTO oauth_authorization_codes (code, client_id, patient_id, redirect_uri, expires_at)
-  VALUES ('SMART_TEST_CODE_901', 'seymour_smart_app', '1', 'http://localhost:3000/callback', NOW() + INTERVAL '1 hour');
-  ```
-
-## API Summary Across Modules
-
-| Module | Stack | Port | Endpoint Focus |
-| :--- | :--- | :--- | :--- |
-| **SeymorFHIR** | Java / Spring Boot | `8090` | FHIR R4 APIs (`/api/fhir/Patient`, `Observation`, `AllergyIntolerance`, `Encounter`, `MedicationRequest`), FHIR Bundle Transactions (`POST /api/fhir`), SMART on FHIR OAuth2 (`/oauth/authorize`, `/oauth/token`). |
-| **TerryFoxMemorial** | Java / HAPI FHIR R4 | `8085` | Native HAPI FHIR R4 Engine (`/fhir/Patient`, `Condition`, `ResearchStudy`, `ResearchSubject`, `DiagnosticReport`), mCODE Oncology TNM Staging, Pathology/Genomic feeds (`POST /api/terryfox/hl7`), Capability Statement (`/fhir/metadata`). |
-| **LangleyGeneralGateway** | C# / .NET 10 | `8083` | C# FHIR APIs (`/fhir/Patient`, `/fhir/Observation`), C# FHIR Bundle Transactions (`POST /fhir`), Native HL7 v2 Ingest (`POST /api/langleygeneral/hl7`), Patient Sync (`POST /api/langleygeneral/sync`). |
-| **langley-backend** | Java / Spring Boot | `8081` | Pediatric Sync Webhooks (`/api/langley/pediatric/sync`, `/api/langley/pediatric/allergy-sync`), Patient Roster & Labs (`/api/patients`). |
-
----
-
-## Project Structure
+## 📂 Repository Layout
 
 ```
 seymour-sandbox/
-├── pom.xml                                  ← Parent Maven POM
-├── README.md                                ← Main Repository documentation
-├── FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md ← Masterclass Integration Engineering Guide
+├── pom.xml                                     ← Root Maven Multi-Module POM
+├── README.md                                   ← Master Repository Documentation
+├── FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md    ← Deep-Dive Architectural Masterclass
+├── docs/
+│   └── ARCHITECTURE_OVERVIEW.md                ← High-Level System Architecture Guide
 │
-├── SeymorFHIR/                              ← Seymour EHR FHIR Server (Java / Spring Boot)
-│   ├── pom.xml
-│   ├── src/main/java/com/healthcare/sandbox/
-│   │   ├── config/DataSeeder.java           ← Seeding complex patient records & labs/allergies
-│   │   ├── controller/
-│   │   │   ├── PatientController.java       ← FHIR Patient & $match CRS endpoints
-│   │   │   ├── ObservationController.java   ← FHIR LOINC Observation endpoint
-│   │   │   ├── AllergyIntoleranceController.java ← FHIR SNOMED Allergy endpoint
-│   │   │   └── BundleController.java        ← FHIR Transaction Bundle processor
-│   │   └── util/PhnValidator.java           ← BC PHN Modulus-11 check digit logic
+├── SeymorFHIR/                                 ← Seymour EHR (Java / Spring Boot)
+│   ├── src/main/resources/db/migration/        ← Flyway Database Migrations (V1, V2)
+│   └── src/main/java/com/healthcare/sandbox/
+│       ├── controller/AdminKeyRotationController.java ← Live RSA Key Rotation
+│       └── service/JwtKeyService.java          ← PostgreSQL Key Store & PEM Serializer
 │
-├── TerryFoxMemorial/                        ← Terry Fox Memorial Cancer Hospital (Java / HAPI FHIR R4)
-│   ├── pom.xml
-│   ├── src/main/java/com/terryfox/hospital/
-│   │   ├── config/TerryFoxHapiServerConfig.java ← HAPI RestfulServer Servlet bean configuration
-│   │   ├── provider/                        ← Native HAPI ResourceProviders (IResourceProvider)
-│   │   │   ├── PatientResourceProvider.java      ← HAPI FHIR Patient & $match provider
-│   │   │   ├── ConditionResourceProvider.java    ← mCODE Cancer TNM Staging provider
-│   │   │   ├── ResearchStudyResourceProvider.java← Clinical Trial Protocol provider
-│   │   │   ├── ResearchSubjectResourceProvider.java← Patient Trial Enrollment provider
-│   │   │   └── DiagnosticReportResourceProvider.java ← NGS Genomic & Pathology provider
-│   │   ├── interceptor/TerryFoxAuditInterceptor.java ← HAPI Audit logging interceptor
-│   │   └── controller/Hl7OncologyIngestController.java ← HL7 v2 pathology ORU^R01 ingestion
+├── TerryFoxMemorial/                           ← Terry Fox Cancer Node (HAPI FHIR R4)
+│   └── src/main/java/com/terryfox/hospital/
+│       ├── config/TerryFoxHapiServerConfig.java← HAPI RestfulServer & CorsInterceptor
+│       ├── interceptor/TerryFoxSecurityInterceptor.java ← HAPI Void Pre-Handled Hook
+│       └── service/TerryFoxJwksKeyService.java ← Dynamic kid Cache Eviction
 │
-├── LangleyChildrensHospital/
-│   ├── langley-backend/                     ← Pediatric Portal Backend (Java / Spring Boot)
-│   │   └── src/main/java/com/langley/hospital/
-│   │       ├── controller/WebhookController.java ← Ingests Mirth JSON & allergy payloads
-│   │       └── util/PhnValidator.java       ← Inbound validation & masked logging
-│   └── langley-frontend/                    ← Langley Clinician Dashboard (Vite / React)
+├── smart-app/                                  ← Clinical Frontend (Angular 17)
+│   └── src/main.ts                             ← Search Directory, EMPI Engine, Key Rotation UI
 │
-└── LangleyGeneralGateway/                   ← Hospital Gateway (C# / .NET 10 Web API)
-    ├── LangleyGeneralGateway.csproj         ← EF Core & Npgsql PostgreSQL configuration
-    ├── Utils/
-    │   ├── PhnValidator.cs                  ← C# Modulus-11 validation & PII masking
-    │   └── Hl7Parser.cs                     ← C# HL7 v2 segment parser (MSH, PID, PV1, OBX)
-    └── Controllers/
-        ├── FhirPatientController.cs         ← C# FHIR Patient controller
-        ├── FhirObservationController.cs     ← C# FHIR Observation controller
-        ├── FhirBundleController.cs           Mikro C# FHIR Bundle Transaction processor
-        ├── Hl7IngestController.cs           ← C# Raw HL7 v2 ingestion controller
-        └── SyncController.cs                ← Safe DTO binding & manual validation upserts
+├── LangleyGeneralGateway/                      ← Gateway Service (C# / .NET 10)
+└── LangleyChildrensHospital/                   ← Pediatric Backend (Java / Spring Boot)
 ```

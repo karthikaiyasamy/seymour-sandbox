@@ -27,10 +27,12 @@ public class TerryFoxJwksKeyService {
     private final Map<String, RSAPublicKey> keyCache = new ConcurrentHashMap<>();
 
     /**
-     * Verifies an incoming RS256 Bearer JWT token against Seymour Auth Server's public JWKS keys.
+     * Verifies an incoming RS256 Bearer JWT token against Seymour Auth Server's
+     * public JWKS keys.
      * 
      * @param token Bearer JWT token string
-     * @return ClaimsSet if signature is cryptographically valid and token is active, null otherwise
+     * @return ClaimsSet if signature is cryptographically valid and token is
+     *         active, null otherwise
      */
     public JWTClaimsSet verifySignedJwt(String token) {
         try {
@@ -39,7 +41,8 @@ public class TerryFoxJwksKeyService {
 
             RSAPublicKey publicKey = getPublicKey(keyId);
             if (publicKey == null) {
-                log.warn("[JWKS_KEY_NOT_FOUND] Could not resolve public key for Key ID: {} from JWKS endpoint: {}", keyId, jwksUrl);
+                log.warn("[JWKS_KEY_NOT_FOUND] Could not resolve public key for Key ID: {} from JWKS endpoint: {}",
+                        keyId, jwksUrl);
                 return null;
             }
 
@@ -56,7 +59,8 @@ public class TerryFoxJwksKeyService {
                 return null;
             }
 
-            log.info("[JWKS_AUTH_SUCCESS] Statistically verified RS256 Bearer JWT for Subject: {} (Client: {})", claims.getSubject(), claims.getClaim("client_id"));
+            log.info("[JWKS_AUTH_SUCCESS] Statistically verified RS256 Bearer JWT for Subject: {} (Client: {})",
+                    claims.getSubject(), claims.getClaim("client_id"));
             return claims;
         } catch (Exception e) {
             log.error("[JWKS_AUTH_ERROR] Exception occurred during RS256 JWT verification", e);
@@ -65,14 +69,17 @@ public class TerryFoxJwksKeyService {
     }
 
     /**
-     * Retrieves public RSA key from cache; fetches from Seymour JWKS endpoint if missing.
+     * Retrieves public RSA key from cache; fetches from Seymour JWKS endpoint if
+     * missing.
      */
     public RSAPublicKey getPublicKey(String keyId) {
         if (keyId != null && keyCache.containsKey(keyId)) {
             return keyCache.get(keyId);
         }
 
-        log.warn("[JWKS_CACHE_EVICT] Unknown keyId [{}] presented in JWT header. Evicting cache and re-fetching JWKS from Seymour Auth Server...", keyId);
+        log.warn(
+                "[JWKS_CACHE_EVICT] Unknown keyId [{}] presented in JWT header. Evicting cache and re-fetching JWKS from Seymour Auth Server...",
+                keyId);
         refreshJwksCache();
 
         if (keyId != null) {
@@ -83,7 +90,8 @@ public class TerryFoxJwksKeyService {
     }
 
     /**
-     * Fetches public JWKS JSON from Seymour Auth Server at http://localhost:8090/.well-known/jwks.json
+     * Fetches public JWKS JSON from Seymour Auth Server at
+     * http://localhost:8090/.well-known/jwks.json
      */
     public synchronized void refreshJwksCache() {
         try {
@@ -99,7 +107,8 @@ public class TerryFoxJwksKeyService {
                         }
                     }
                 }
-                log.info("[JWKS_CACHE_UPDATED] Successfully cached {} public RSA key(s) from Seymour Auth Server", keyCache.size());
+                log.info("[JWKS_CACHE_UPDATED] Successfully cached {} public RSA key(s) from Seymour Auth Server",
+                        keyCache.size());
             }
         } catch (Exception e) {
             log.error("[JWKS_FETCH_FAILED] Failed to fetch public keys from Seymour Auth Server at {}", jwksUrl, e);

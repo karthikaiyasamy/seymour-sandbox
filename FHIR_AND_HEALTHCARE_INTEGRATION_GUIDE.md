@@ -167,30 +167,23 @@ Connecting external applications to provincial health endpoints (HIBC, BC Client
                ├─── 2. POST /auth Token Request (client_id + signed JWT Assertion) ──►│
                │                                                                      │
                │◄── 3. Returns OAuth2 Bearer Access Token ────────────────────────────┤
-               │                                                                      │
-               └─── 4. FHIR REST Request (Authorization: Bearer <token>) ─────────────►│
-```
-
-### Key Security Layers:
-1. **Certificate Pre-Registration**: The client certificate's Common Name (CN) and public key fingerprint are pre-registered and whitelisted in the developer/provincial portal.
-2. **Mutual TLS (mTLS)**: Handshake validates both server identity and client certificate before HTTP traffic is processed.
-3. **OAuth2 Client Credentials (RFC 7523)**: Authenticates using a signed JWT assertion (`RS256`), granting scoped access (`system/CoverageEligibilityResponse.read`).
+Regional health systems enforce strict system-to-system security boundaries using Mutual TLS (mTLS) for transport-layer security and OAuth2 Client Credentials grant flows for API authentication.
 
 ---
 
 ## 6. Enterprise EHR Architectures: MEDITECH, Cerner Millennium, & Epic
 
-Understanding how the "Big 3" enterprise Health Information Systems (HIS) operate in Canadian health authorities is essential for integration software engineers:
+Understanding how the "Big 3" enterprise Health Information Systems (HIS) operate in regional health networks is essential for integration software engineers:
 
-### 6.1 MEDITECH (Fraser Health & Interior Health Primary EHR)
-* **Architecture**: Enterprise EHR platform (Expanse / MAGIC) powering Fraser Health emergency, registration, laboratory, and inpatient wards.
+### 6.1 MEDITECH (Regional Primary EHR)
+* **Architecture**: Enterprise EHR platform (Expanse / MAGIC) powering regional emergency, registration, laboratory, and inpatient wards.
 * **Engineering Responsibilities**:
   1. **HL7 v2 Interface Management**: Configuring `ADT^A01/A04/A08` demographic feeds and `ORU^R01` lab/radiology result interfaces.
   2. **MEDITECH Data Repository (DR) & T-SQL**: Querying MEDITECH's SQL Server Data Repository (DR) tables (`AdmPatients`, `PharMedications`, `LALibrary`) using T-SQL for clinical reporting and census dashboards.
   3. **MEDITECH Expanse REST / FHIR APIs**: Connecting external applications via RESTful FHIR R4 endpoints.
 
-### 6.2 Cerner Millennium / CST Cerner (PHSA, VCH, PHC)
-* **Architecture**: The regional EHR deployed under BC's **Clinical Systems Transformation (CST)** across PHSA (BC Cancer, BC Children's, BC Women's), VCH, and PHC.
+### 6.2 Cerner Millennium / CST Cerner (Regional Health Networks)
+* **Architecture**: The regional EHR deployed under large-scale clinical transformation projects across acute, ambulatory, and specialty cancer centers.
 * **Engineering Responsibilities**:
   1. **Cerner Ignite FHIR R4 APIs (`code.cerner.com`)**: Integrating web/mobile clinical applications using Cerner's Ignite R4 FHIR APIs, enforcing SMART-on-FHIR OAuth2 security scopes (`patient/Patient.read`, `patient/Observation.read`).
   2. **Foreign System Interfaces (FSI) & Mirth/Rhapsody**: Configuring Mirth Connect or Rhapsody interface channels to route messages between Cerner Millennium and provincial services (BC Client Registry CRS).
@@ -580,7 +573,7 @@ if (existingHashLog.isPresent()) {
 
 ## 16. Patient Identity Conflict Resolution & PENDING_REVIEW Queue
 
-Patient safety is the top priority in Canadian Health Authorities (**PHSA**, **Fraser Health**, **Vancouver Coastal Health**). When an inbound ADT message arrives with an ambiguous demographic match (e.g. matching name and DOB but a different MRN or misspelled surname), **silently overwriting patient history or creating a duplicate record violates clinical safety**.
+Patient safety is the top priority in regional health networks. When an inbound ADT message arrives with an ambiguous demographic match (e.g. matching name and DOB but a different MRN or misspelled surname), **silently overwriting patient history or creating a duplicate record violates clinical safety**.
 
 ### 16.1 Multi-Field Match Scoring Engine
 
@@ -601,5 +594,62 @@ $$S = S_{\text{LastName}} (0.35) + S_{\text{FirstName}} (0.25) + S_{\text{DOB}} 
 3. Patient creation is **immediately halted**, throwing an exception.
 4. Health Information Management (HIM) analysts inspect pending conflicts via `GET /api/fhir/Patient/match-reviews`.
 5. HIM analyst approves the record via `POST /api/fhir/Patient/match-reviews/{id}/approve`, promoting the record to `MANUALLY_APPROVED` and registering the Patient safely.
+
+---
+
+## 17. Persistent RSA Key Stores & Zero-Downtime Key Rotation (`kid` Cache Eviction)
+
+In enterprise healthcare networks, OAuth2 Identity Providers must support continuous, zero-downtime key rotation without dropping clinical transactions.
+
+### 17.1 Persistent Key Management (`oauth_keys`)
+Private/Public RSA keypairs are serialized as PKCS#8 / X.509 PEM strings and stored in PostgreSQL `oauth_keys`:
+
+```sql
+CREATE TABLE oauth_keys (
+    id BIGSERIAL PRIMARY KEY,
+    key_id VARCHAR(100) NOT NULL UNIQUE,
+    private_key_pem TEXT NOT NULL,
+    public_key_pem TEXT NOT NULL,
+    algorithm VARCHAR(20) NOT NULL DEFAULT 'RS256',
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+);
+```
+
+### 17.2 Dynamic `kid` Cache Eviction Algorithm
+Remote microservices (e.g. Terry Fox HAPI FHIR Node) verify RS256 Bearer JWTs statelessly using public keys published at `http://localhost:8090/.well-known/jwks.json`.
+
+```
+[ Incoming Bearer Token ] ──▶ Inspect Header `kid`: "seymour-key-1786215570"
+                                     │
+                        ┌────────────┴────────────┐
+                        ▼                         ▼
+             [ `kid` in RAM Cache? ]   [ `kid` Missing from Cache? ]
+                        │                         │
+                        ▼                         ▼
+              (Verify Signature)       [ Log `[JWKS_CACHE_EVICT]` ]
+                                                  │
+                                                  ▼
+                                       [ HTTP GET `/.well-known/jwks.json` ]
+                                                  │
+                                                  ▼
+                                       [ Update RAM Cache & Verify ]
+```
+
+---
+
+## 18. Cross-Hospital EMPI Identity Reconciliation Engine
+
+When a clinical portal queries regional specialty nodes (e.g., Terry Fox Oncology), cross-hospital identity linking is performed using unique patient identifiers (e.g., BC Personal Health Number).
+
+### 18.1 Demographic Discrepancy Scoring
+When demographic differences occur (e.g. a 3-day Date of Birth discrepancy: `1948-03-12` vs `1948-03-15`), the reconciliation engine computes a Match Confidence Score ($M \in [0, 100]$):
+
+$$M = 100 - \Delta_{\text{DOB}} (12) - \Delta_{\text{Name}} (5)$$
+
+1. **High Match ($M \ge 95\%$):** Clean cross-hospital rendering.
+2. **Identity Conflict ($M < 95\%$):** Displays amber **EMPI Identity Conflict Warning Banner** listing exact field deltas.
+3. **Audit Action:** Renders interactive **"Flag for EMPI Audit Review"** action button to queue the record for administrative review across regional health nodes.
+
 
 
