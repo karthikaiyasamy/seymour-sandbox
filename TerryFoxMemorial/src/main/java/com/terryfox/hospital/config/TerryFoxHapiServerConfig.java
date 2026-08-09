@@ -28,14 +28,6 @@ public class TerryFoxHapiServerConfig {
     private final com.terryfox.hospital.interceptor.TerryFoxSecurityInterceptor securityInterceptor;
 
     @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
-        return builder
-                .setConnectTimeout(Duration.ofSeconds(3))
-                .setReadTimeout(Duration.ofSeconds(5))
-                .build();
-    }
-
-    @Bean
     public ServletRegistrationBean<RestfulServer> fhirServlet() {
         RestfulServer server = new RestfulServer(FhirContext.forR4());
         server.setServerName("Terry Fox Memorial Hospital - HAPI FHIR R4 Engine");
