@@ -1,3 +1,6 @@
+// Single-file standalone component — intentional SFC pattern (Angular 17+).
+// In a production multi-page portal with complex routing, this would be split into feature modules.
+
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient, HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
