@@ -1,6 +1,6 @@
 # Regional Health Interoperability & Federated Security Architecture
 
-This document outlines the architectural blueprint of the **Regional Healthcare Interoperability Sandbox**, designed for federated clinical data exchange, SMART-on-FHIR authorization, zero-downtime RSA key management, and Enterprise Master Patient Index (EMPI) identity resolution.
+This document outlines the architectural blueprint of the Regional Healthcare Interoperability Sandbox, designed for federated clinical data exchange, SMART-on-FHIR authorization, zero-downtime RSA key management, and Enterprise Master Patient Index (EMPI) identity resolution.
 
 ```
                                ┌─────────────────────────────────────────────────────────┐
@@ -18,7 +18,7 @@ This document outlines the architectural blueprint of the **Regional Healthcare 
 │     ANGULAR SMART CLINICAL PORTAL       │   │    TERRY FOX CANCER HOSPITAL NODE       │
 │           (Port 4200 / SPA)             │   │    (Java 21 / HAPI FHIR R4 Engine)      │
 │  - Search Directory & Quick Selection   │   │  Port: 8085                             │
-│  - Cross-Node Federated Patient Search  │──▶│  - Native HAPI RestfulServer            │
+│  - Cross-Node Federated Patient Search  │───│  - Native HAPI RestfulServer            │
 │  - EMPI Identity Reconciliation Engine  │   │  - `kid`-Driven JWKS Cache Eviction     │
 │  - Emergency Key Rotation Trigger Button│   │  - mCODE Oncology & Genomics Suite      │
 └─────────────────────────────────────────┘   └─────────────────────────────────────────┘

@@ -4,7 +4,7 @@ Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass G
 
 ---
 
-## 📚 Table of Contents
+## Table of Contents
 
 1. [Architectural Overview & Ecosystem Topology](#1-architectural-overview--ecosystem-topology)
 2. [HL7 v2 vs FHIR R4: Core Concepts & Protocols](#2-hl7-v2-vs-fhir-r4-core-concepts--protocols)
@@ -22,17 +22,27 @@ Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass G
 14. [End-to-End API Testing & Curl Command Reference](#14-end-to-end-api-testing--curl-command-reference)
 15. [Reliable HL7 Message Audit, MSH-10 Idempotency & Tracing](#15-reliable-hl7-message-audit-msh-10-idempotency--tracing)
 16. [Patient Identity Conflict Resolution & PENDING_REVIEW Queue](#16-patient-identity-conflict-resolution--pending_review-queue)
+17. [Persistent RSA Key Stores & Zero-Downtime Key Rotation](#17-persistent-rsa-key-stores--zero-downtime-key-rotation-kid-cache-eviction)
+18. [Cross-Hospital EMPI Identity Reconciliation Engine](#18-cross-hospital-empi-identity-reconciliation-engine)
 
 ---
 
-## ⚠️ Synthetic Data & Open Source Developer Disclaimer
+## Synthetic Data & Open Source Developer Disclaimer
 > **This repository and guide represent an open-source educational developer sandbox designed exclusively for learning healthcare software engineering, HL7 v2 messaging, HAPI FHIR R4 standards, and BC identity governance (Modulus-11 PHN validation). All patient names, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial data are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
 
 ---
 
 ## 1. Architectural Overview & Ecosystem Topology
 
-The sandbox simulates a multi-hospital regional health authority ecosystem consisting of **four distinct microservices** and an integration engine middleware:
+The sandbox simulates a regional health authority ecosystem consisting of four distinct microservices and an integration engine middleware:
+
+### Sub-Module Documentation Links:
+* **[Seymour Regional EHR Module README](SeymorFHIR/README.md)**
+* **[Terry Fox Cancer Hospital Module README](TerryFoxMemorial/README.md)**
+* **[Angular SMART Clinical Portal Module README](smart-app/README.md)**
+* **[Langley General Gateway C# Module README](LangleyGeneralGateway/README.md)**
+* **[Langley Children's Hospital Workspace README](LangleyChildrensHospital/README.md)**
+* **[System Architecture Overview Guide](docs/ARCHITECTURE_OVERVIEW.md)**
 
 ```
                                +-------------------------------------------------------+
@@ -58,7 +68,7 @@ The sandbox simulates a multi-hospital regional health authority ecosystem consi
   +----------------------------+-----------------------+      +---------------------------+---------------------------+
   |    Langley Children's Hospital Backend             |      |             Langley General Gateway                       |
   |           (Java / Spring Boot)                     |      |              (C# / .NET 10 Web API)                       |
-  |       Port: 8081 | DB: langley_db                  |      |       Port: 8083 | DB: langley_general_db             |
+  |         Port: 8081 | DB: langley_db          |      |         Port: 8083 | DB: langley_general_db           |
   +----------------------------------------------------+      +-------------------------------------------------------+
                                ^                                                          ^
                                |                                                          |
@@ -68,17 +78,17 @@ The sandbox simulates a multi-hospital regional health authority ecosystem consi
 
 ### Microservice Roles & Architectural Highlights:
 
-1. **Seymour FHIR Server (`SeymorFHIR` — Java / Port 8090):**
+1. **Seymour FHIR Server (`SeymorFHIR` — Java / Port 8090):** [Detailed Code Walkthrough README](SeymorFHIR/README.md)
    * Primary Regional EHR Repository.
    * Exposes RESTful FHIR R4 resources (`Patient`, `Encounter`, `Observation`, `AllergyIntolerance`, `MedicationRequest`, `DocumentReference`).
-   * Implements atomic FHIR `transaction` bundles, SMART-on-FHIR OAuth2 server (`/oauth2/authorize`, `/oauth2/token`), and Patient Master Index (`$match`).
-2. **Terry Fox Memorial Cancer Hospital (`TerryFoxMemorial` — Java / Port 8085):**
+   * Implements atomic FHIR `transaction` bundles, SMART-on-FHIR OAuth2 server (`/oauth2/authorize`, `/oauth2/token`), persistent PostgreSQL RSA key storage (`oauth_keys`), live key rotation (`/api/admin/rotate-keys`), and Patient Master Index (`$match`).
+2. **Terry Fox Memorial Cancer Hospital (`TerryFoxMemorial` — Java / Port 8085):** [Detailed Code Walkthrough README](TerryFoxMemorial/README.md)
    * Specialized Oncology & Clinical Trials Node powered by the official **HAPI FHIR R4 Engine (`ca.uhn.fhir.rest.server.RestfulServer`)**.
-   * Implements mCODE (Minimal Common Oncology Data Elements) TNM staging, clinical trial protocols (`ResearchStudy` / `ResearchSubject`), NGS genomic reports (`DiagnosticReport`), HL7 v2 pathology ingestion (`ORU^R01`/`MDM^T02`), and the Multi-Hospital Regional Sync Pipeline (`RegionalSyncService`).
-3. **Langley General Gateway (`LangleyGeneralGateway` — C# .NET 10 / Port 8083):**
+   * Implements mCODE (Minimal Common Oncology Data Elements) TNM staging, clinical trial protocols (`ResearchStudy` / `ResearchSubject`), NGS genomic reports (`DiagnosticReport`), HL7 v2 pathology ingestion (`ORU^R01`/`MDM^T02`), dynamic `kid` cache eviction, and HAPI security interceptor.
+3. **Langley General Gateway (`LangleyGeneralGateway` — C# .NET 10 / Port 8083):** [Detailed Code Walkthrough README](LangleyGeneralGateway/README.md)
    * Enterprise C# registration gateway and FHIR API service.
    * Handles pipe-delimited HL7 v2 ingestion (`MSH`, `PID`, `PV1`, `OBX`), C# FHIR R4 bundle processing, timezone-safe `DateOnly` birthdate binding, and C# Modulus-11 PHN validation.
-4. **Langley Children's Hospital Backend (`langley-backend` — Java / Port 8081):**
+4. **Langley Children's Hospital Backend (`langley-backend` — Java / Port 8081):** [Detailed Code Walkthrough README](LangleyChildrensHospital/README.md)
    * Pediatric portal backend consuming webhook synchronization payloads (immunizations, pediatric lab panels, allergy updates) emitted downstream by integration middleware.
 
 ---

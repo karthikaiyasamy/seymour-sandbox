@@ -1,96 +1,93 @@
-# Langley General Gateway (LangleyGeneralGateway)
+# Langley General Gateway (C# .NET 10 Web API)
 
-A gateway service representing the demographics registry for **Langley General Hospital**. This is a modern **C# / .NET 10 Web API** microservice designed to receive, process, and persist patient demographic sync messages forwarded by an integration engine pipeline.
-
-This module handles automated patient registration, demographics updates, and database persistence in accordance with modern healthcare integration standards.
+A dual-stack gateway service representing the demographic and registration registry for Langley General Hospital. Built on C# and .NET 10 Web API, it receives, validates, and persists patient demographic sync messages and HL7 v2 payloads.
 
 ---
 
-## 1. Technical Architecture & Design Decisions
+## Table of Contents
 
-The application employs several key architectural patterns to ensure reliability, data integrity, and compliance with healthcare data processing standards:
-
-### 1.1 Timezone-Safe Date Processing (`DateOnly`)
-* **Design Decision:** The domain entity uses the C# **`DateOnly`** type for `DateOfBirth` rather than the traditional `DateTime` object.
-* **Technical Rationale:** A date of birth is a calendar date only—it does not carry time or timezone metadata. In distributed healthcare environments, transmitting dates of birth as `DateTime` (or storing them as `timestamp with time zone` in PostgreSQL) frequently leads to timezone shift errors. For example, a birthday transmitted as `1988-12-15T00:00:00` from an Eastern Time client can shift to `1988-12-14` or `1988-12-16` when parsed by a server configured to Pacific Time (or UTC). By using `DateOnly`, the API maps directly to the PostgreSQL `date` column type, eliminating timezone conversion errors.
-
-### 1.2 Defensive DTO Validation & Input Normalization
-* **Design Decision:** The `SyncPatientRequest` DTO models incoming demographic parameters as nullable strings (`string?`) and performs validation and type conversion explicitly in the controller layer.
-* **Technical Rationale:** Standard ASP.NET Core model validation can reject payloads at the framework level (System.Text.Json deserialization) when type mismatches occur (such as Mirth sending empty strings `""` for date fields). By allowing loose binding at the DTO level and performing explicit parsing (`DateOnly.TryParse()`), the API prevents raw parsing exceptions, processes optional fields gracefully, and returns clean, structured error responses (`400 Bad Request`) to the client.
-
-### 1.3 Entity Framework Core (EF Core 10) & PostgreSQL Integration
-* **Data Integrity:** The `LangleyGeneralDbContext` configures a unique index constraint on the patient **`Mrn`** (Medical Record Number) to guarantee demographic consistency and prevent duplicate registrations.
-* **Upsert (Sync) Pattern:** The sync controller uses an upsert design. If the MRN is already registered, the service updates the demographics; if the MRN is new, it automatically registers a new record.
+1. [Architectural Overview](#1-architectural-overview)
+2. [Timezone-Safe Date Processing (`DateOnly`)](#2-timezone-safe-date-processing-dateonly)
+3. [Defensive DTO Binding & Parsing (`SyncPatientRequest.cs`)](#3-defensive-dto-binding--parsing-syncpatientrequestcs)
+4. [BC PHN Modulus-11 Validation (`PhnValidator.cs`)](#4-bc-phn-modulus-11-validation-phnvalidatorcs)
+5. [C# HL7 v2 Segment Parser (`Hl7Parser.cs`)](#5-c-hl7-v2-segment-parser-hl7parsercs)
+6. [EF Core 10 PostgreSQL Persistence (`LangleyGeneralDbContext.cs`)](#6-ef-core-10-postgresql-persistence-langleygeneraldbcontextcs)
+7. [API Endpoint Reference](#7-api-endpoint-reference)
+8. [Local Execution Instructions](#8-local-execution-instructions)
 
 ---
 
-## 2. Tech Stack
+## 1. Architectural Overview
 
-* **Runtime:** .NET 10.0
-* **Framework:** ASP.NET Core Web API (Controller-based routing)
-* **ORM:** Entity Framework Core (Code-First Migrations)
-* **Database:** PostgreSQL (Database name: `langley_general_db` on port `5432`)
-* **API Port:** `8083`
+Langley General Gateway serves as the C# .NET 10 endpoint in the regional health authority sandbox, demonstrating dual-stack interoperability between Java and .NET microservices.
 
 ---
 
-## 3. API Specifications
+## 2. Timezone-Safe Date Processing (`DateOnly`)
 
-### Sync Webhook Endpoint
-* **Endpoint:** `POST /api/langleygeneral/sync`
-* **Content-Type:** `application/json`
-* **Payload:**
-```json
-{
-  "mrn": "MRN-223388",
-  "phn": "9123456789",
-  "firstName": "Shane",
-  "lastName": "Murphy",
-  "dateOfBirth": "1988-12-15",
-  "gender": "male"
-}
+### Technical Rationale
+The patient domain entity uses the C# `DateOnly` type for `DateOfBirth` rather than `DateTime`.
+A birth date is a calendar date without time or timezone offset. Transmitting birth dates as `DateTime` (or storing as `timestamp with time zone` in PostgreSQL) causes timezone shift errors when parsed across Eastern, UTC, and Pacific servers. `DateOnly` maps directly to PostgreSQL's `date` column type, eliminating timezone conversion errors.
+
+---
+
+## 3. Defensive DTO Binding & Parsing (`SyncPatientRequest.cs`)
+
+The `SyncPatientRequest` DTO models incoming demographic parameters as nullable strings (`string?`) and performs explicit parsing (`DateOnly.TryParse()`) inside `SyncController.cs`. This prevents framework-level deserialization exceptions when Mirth Connect or external interfaces send empty string representations for date fields.
+
+---
+
+## 4. BC PHN Modulus-11 Validation (`PhnValidator.cs`)
+
+Implements the official British Columbia Personal Health Number check digit validation algorithm in C#:
+- Validates 10-digit length and starting digit `9`.
+- Calculates weighted sum using multipliers `[2, 4, 8, 5, 10, 9, 7, 3]`.
+- Enforces Modulus-11 check digit verification.
+- Includes `MaskPhn()` method for PII-safe log sanitization.
+
+---
+
+## 5. C# HL7 v2 Segment Parser (`Hl7Parser.cs`)
+
+`Hl7Parser.cs` parses raw pipe-delimited HL7 v2 `ADT^A01` messages in C#:
+- Extracts `MSH` sending facility and message control ID.
+- Extracts `PID-3` (MRN/PHN), `PID-5` (Family/Given Name), and `PID-7` (Birth Date).
+- Maps values to `Patient` entity objects.
+
+---
+
+## 6. EF Core 10 PostgreSQL Persistence (`LangleyGeneralDbContext.cs`)
+
+Configures Entity Framework Core 10 with Npgsql PostgreSQL provider:
+- Configures unique index on `Mrn` to enforce demographic consistency.
+- Manages code-first migrations (`dotnet ef migrations add`).
+
+---
+
+## 7. API Endpoint Reference
+
+### Sync Patient Endpoint
+- **POST `/api/langleygeneral/sync`**: Accepts JSON demographic payloads, validates PHN checksums, and performs upsert operations on patient entities.
+
+### FHIR Patient Endpoint
+- **GET `/fhir/Patient`**: Serves FHIR R4 Patient JSON resources.
+- **GET `/fhir/Patient/{id}`**: Retrieves patient by primary key.
+
+### HL7 Ingest Endpoint
+- **POST `/api/langleygeneral/hl7`**: Accepts raw pipe-delimited HL7 v2 messages (`text/plain`).
+
+---
+
+## 8. Local Execution Instructions
+
+```bash
+cd LangleyGeneralGateway
+
+# Apply EF Core database migrations
+dotnet ef database update
+
+# Run .NET 10 Web API service
+dotnet run
 ```
-* **Response (Created):**
-```json
-{
-  "status": "success",
-  "message": "Patient MRN-223388 created successfully."
-}
-```
 
-### Roster Endpoint
-* **Endpoint:** `GET /api/langleygeneral/patients`
-* **Response:**
-```json
-[
-  {
-    "id": 3,
-    "mrn": "MRN-223388",
-    "phn": "9123456789",
-    "firstName": "Shane",
-    "lastName": "Murphy",
-    "dateOfBirth": "1988-12-15",
-    "gender": "male",
-    "syncedAt": "2026-07-17T05:32:15.018566Z"
-  }
-]
-```
-
----
-
-## 4. How to Run Locally
-
-1. Ensure your local PostgreSQL server is running.
-2. Navigate to the project directory:
-   ```bash
-   cd LangleyGeneralGateway
-   ```
-3. Initialize/update the database schema:
-   ```bash
-   dotnet ef database update
-   ```
-4. Start the service:
-   ```bash
-   dotnet run
-   ```
-   *The gateway will compile and start listening on `http://localhost:8083`.*
+Service listens on `http://localhost:8083`.

@@ -1,18 +1,26 @@
 # Enterprise Regional Healthcare Interoperability & Federated Security Sandbox
 
-A comprehensive, production-grade regional healthcare sandbox demonstrating federated clinical data exchange, **SMART-on-FHIR v2.0 authorization**, **zero-downtime RSA key rotation**, **JWKS public key verification**, **Enterprise Master Patient Index (EMPI) identity reconciliation**, and **mCODE oncology data models** across **Java 21 (Spring Boot & HAPI FHIR R4)**, **C# (.NET 10)**, and **Angular 17 SPA**.
-
-> ⚠️ **IMPORTANT EDUCATIONAL & SYNTHETIC DATA DISCLAIMER**:  
-> **This repository is an open-source engineering reference implementation designed for learning enterprise healthcare architecture, HL7 v2 messaging, FHIR R4 specifications, and regional identity governance. All patient records, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial datasets are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.**
-
-> 📘 **Architectural Masterclass Documentation:**  
-> Read the complete architectural deep-dives:
-> - **[FHIR & Healthcare Integration Engineering Masterclass](FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)**
-> - **[Regional Health Federated Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)**
+A comprehensive, production-grade regional healthcare sandbox demonstrating federated clinical data exchange, SMART-on-FHIR v2.0 authorization, zero-downtime RSA key rotation, JWKS public key verification, Enterprise Master Patient Index (EMPI) identity reconciliation, and mCODE oncology data models across Java 21 (Spring Boot & HAPI FHIR R4), C# (.NET 10), and Angular 17 SPA.
 
 ---
 
-## 🏛️ System Architecture Overview
+## IMPORTANT EDUCATIONAL & SYNTHETIC DATA DISCLAIMER
+This repository is an open-source engineering reference implementation designed for learning enterprise healthcare architecture, HL7 v2 messaging, FHIR R4 specifications, and regional identity governance. All patient records, Personal Health Numbers (PHNs), Medical Record Numbers (MRNs), diagnoses, lab results, and clinical trial datasets are 100% synthetic, fictitious, and artificially generated. No real Personal Health Information (PHI) is used or stored.
+
+---
+
+## Architectural Masterclass & Sub-Module Documentation Links
+- **[FHIR & Healthcare Integration Engineering Masterclass](FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md)**
+- **[System Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)**
+- **[Seymour Regional EHR Module README](SeymorFHIR/README.md)**
+- **[Terry Fox Cancer Hospital Module README](TerryFoxMemorial/README.md)**
+- **[Angular SMART Clinical Portal Module README](smart-app/README.md)**
+- **[Langley General Gateway C# Module README](LangleyGeneralGateway/README.md)**
+- **[Langley Children's Hospital Workspace README](LangleyChildrensHospital/README.md)**
+
+---
+
+## System Architecture Overview
 
 The sandbox simulates a regional health authority ecosystem composed of four microservices and a clinical frontend:
 
@@ -32,7 +40,7 @@ The sandbox simulates a regional health authority ecosystem composed of four mic
 │     ANGULAR SMART CLINICAL PORTAL       │   │    TERRY FOX CANCER HOSPITAL NODE       │
 │        (Angular 17 / Port 4200 / SPA)   │   │    (Java 21 / HAPI FHIR R4 Engine)      │
 │  - Search Directory & Quick Selection   │   │  Port: 8085                             │
-│  - Cross-Node Federated Patient Search  │──▶│  - Native HAPI RestfulServer            │
+│  - Cross-Node Federated Patient Search  │───│  - Native HAPI RestfulServer            │
 │  - EMPI Identity Reconciliation Engine  │   │  - `kid`-Driven JWKS Cache Eviction     │
 │  - Emergency Key Rotation Trigger Button│   │  - mCODE Oncology & Genomics Suite      │
 └─────────────────────────────────────────┘   └─────────────────────────────────────────┘
@@ -49,7 +57,7 @@ The sandbox simulates a regional health authority ecosystem composed of four mic
 
 ---
 
-## 🔥 Key Technical & Architectural Features
+## Key Technical & Architectural Features
 
 ### 1. Persistent RSA Key Store & Zero-Downtime Key Rotation
 - **PostgreSQL Key Store (`oauth_keys`):** RSA keypairs are serialized via PKCS#8 / X.509 PEM standards and stored in PostgreSQL, ensuring active signing keys survive server restarts.
@@ -74,19 +82,19 @@ The sandbox simulates a regional health authority ecosystem composed of four mic
 
 ---
 
-## 🛠️ Microservice Directory & API Summary
+## Microservice Directory & Sub-Module Reference
 
-| Module | Stack | Port | Primary Responsibilities |
-| :--- | :--- | :--- | :--- |
-| **`SeymorFHIR`** | Java 21 / Spring Boot 3.2 | `8090` | Primary EHR Node, Custom FHIR R4 APIs, PostgreSQL Key Store (`oauth_keys`), Live Key Rotation (`/api/admin/rotate-keys`), SMART OAuth (`/oauth/token`), JWKS (`/.well-known/jwks.json`). |
-| **`TerryFoxMemorial`** | Java 21 / HAPI FHIR R4 | `8085` | Regional Specialty Oncology Node, Native HAPI `RestfulServer`, `kid`-Driven JWKS Cache Eviction, mCODE Cancer Staging & Genomics. |
-| **`smart-app`** | Angular 17 / TypeScript | `4200` | Search-Driven Clinical Portal, SMART OAuth Handshake, EMPI Reconciliation Engine, Live Key Rotation Simulator. |
-| **`LangleyGeneralGateway`** | C# / .NET 10 | `8083` | Dual-Stack Gateway, C# FHIR R4 APIs & Bundles, Raw HL7 v2 Segment Ingestion. |
-| **`langley-backend`** | Java 21 / Spring Boot | `8081` | Pediatric Portal Backend, Inbound Sync Webhooks, Modulus-11 PHN Checksum Logic. |
+| Module | Stack | Port | Documentation Link | Primary Responsibilities |
+| :--- | :--- | :--- | :--- | :--- |
+| **`SeymorFHIR`** | Java 21 / Spring Boot 3.2 | `8090` | [Seymour EHR README](SeymorFHIR/README.md) | Primary EHR Node, Custom FHIR R4 APIs, PostgreSQL Key Store (`oauth_keys`), Live Key Rotation (`/api/admin/rotate-keys`), SMART OAuth (`/oauth/token`), JWKS (`/.well-known/jwks.json`). |
+| **`TerryFoxMemorial`** | Java 21 / HAPI FHIR R4 | `8085` | [Terry Fox README](TerryFoxMemorial/README.md) | Regional Specialty Oncology Node, Native HAPI `RestfulServer`, `kid`-Driven JWKS Cache Eviction, mCODE Cancer Staging & Genomics. |
+| **`smart-app`** | Angular 17 / TypeScript | `4200` | [Angular Portal README](smart-app/README.md) | Search-Driven Clinical Portal, SMART OAuth Handshake, EMPI Reconciliation Engine, Live Key Rotation Simulator. |
+| **`LangleyGeneralGateway`** | C# / .NET 10 | `8083` | [Langley Gateway README](LangleyGeneralGateway/README.md) | Dual-Stack Gateway, C# FHIR R4 APIs & Bundles, Raw HL7 v2 Segment Ingestion. |
+| **`langley-backend`** | Java 21 / Spring Boot | `8081` | [Langley Children's README](LangleyChildrensHospital/README.md) | Pediatric Portal Backend, Inbound Sync Webhooks, Modulus-11 PHN Checksum Logic. |
 
 ---
 
-## 🚀 Quick Start & Local Deployment
+## Quick Start & Local Deployment
 
 ### Option A: Docker Compose (Recommended)
 Spin up PostgreSQL, Seymour EHR, Terry Fox HAPI Server, Langley Gateway, and the Angular Portal in a single command:
@@ -125,35 +133,4 @@ mvn spring-boot:run
 ```bash
 cd smart-app
 npm start
-```
-
----
-
-## 📂 Repository Layout
-
-```
-seymour-sandbox/
-├── pom.xml                                     ← Root Maven Multi-Module POM
-├── README.md                                   ← Master Repository Documentation
-├── FHIR_AND_HEALTHCARE_INTEGRATION_GUIDE.md    ← Deep-Dive Architectural Masterclass
-├── docs/
-│   └── ARCHITECTURE_OVERVIEW.md                ← High-Level System Architecture Guide
-│
-├── SeymorFHIR/                                 ← Seymour EHR (Java / Spring Boot)
-│   ├── src/main/resources/db/migration/        ← Flyway Database Migrations (V1, V2)
-│   └── src/main/java/com/healthcare/sandbox/
-│       ├── controller/AdminKeyRotationController.java ← Live RSA Key Rotation
-│       └── service/JwtKeyService.java          ← PostgreSQL Key Store & PEM Serializer
-│
-├── TerryFoxMemorial/                           ← Terry Fox Cancer Node (HAPI FHIR R4)
-│   └── src/main/java/com/terryfox/hospital/
-│       ├── config/TerryFoxHapiServerConfig.java← HAPI RestfulServer & CorsInterceptor
-│       ├── interceptor/TerryFoxSecurityInterceptor.java ← HAPI Void Pre-Handled Hook
-│       └── service/TerryFoxJwksKeyService.java ← Dynamic kid Cache Eviction
-│
-├── smart-app/                                  ← Clinical Frontend (Angular 17)
-│   └── src/main.ts                             ← Search Directory, EMPI Engine, Key Rotation UI
-│
-├── LangleyGeneralGateway/                      ← Gateway Service (C# / .NET 10)
-└── LangleyChildrensHospital/                   ← Pediatric Backend (Java / Spring Boot)
 ```
