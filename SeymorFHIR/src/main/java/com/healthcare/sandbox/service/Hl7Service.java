@@ -96,6 +96,7 @@ public class Hl7Service {
      * Registers a new patient if the MRN is not already found in the database.
      * Includes full message audit logging and MSH-10 idempotency protection.
      */
+    @org.springframework.transaction.annotation.Transactional
     public AdtEvent parseHl7(String hl7Text) {
         String correlationId = UUID.randomUUID().toString();
         String payloadHash = calculateSha256(hl7Text);

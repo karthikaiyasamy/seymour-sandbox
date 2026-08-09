@@ -5,36 +5,35 @@ import ca.uhn.fhir.rest.api.EncodingEnum;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import com.terryfox.hospital.interceptor.TerryFoxAuditInterceptor;
 import com.terryfox.hospital.provider.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class TerryFoxHapiServerConfig {
 
-    @Autowired
-    private PatientResourceProvider patientResourceProvider;
+    private final PatientResourceProvider patientResourceProvider;
+    private final ConditionResourceProvider conditionResourceProvider;
+    private final ResearchStudyResourceProvider researchStudyResourceProvider;
+    private final ResearchSubjectResourceProvider researchSubjectResourceProvider;
+    private final DiagnosticReportResourceProvider diagnosticReportResourceProvider;
+    private final TerryFoxAuditInterceptor auditInterceptor;
+    private final com.terryfox.hospital.interceptor.TerryFoxSecurityInterceptor securityInterceptor;
 
-    @Autowired
-    private ConditionResourceProvider conditionResourceProvider;
-
-    @Autowired
-    private ResearchStudyResourceProvider researchStudyResourceProvider;
-
-    @Autowired
-    private ResearchSubjectResourceProvider researchSubjectResourceProvider;
-
-    @Autowired
-    private DiagnosticReportResourceProvider diagnosticReportResourceProvider;
-
-    @Autowired
-    private TerryFoxAuditInterceptor auditInterceptor;
-
-    @Autowired
-    private com.terryfox.hospital.interceptor.TerryFoxSecurityInterceptor securityInterceptor;
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(3))
+                .setReadTimeout(Duration.ofSeconds(5))
+                .build();
+    }
 
     @Bean
     public ServletRegistrationBean<RestfulServer> fhirServlet() {

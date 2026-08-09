@@ -35,6 +35,18 @@
             <artifactId>postgresql</artifactId>
         </dependency>
 
+        <!-- Spring Boot Actuator for Health Probes -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Flyway DB Migrations -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
         <!-- Resilience4j (Bulkhead, Circuit Breaker, Rate Limiter) -->
         <dependency>
             <groupId>io.github.resilience4j</groupId>

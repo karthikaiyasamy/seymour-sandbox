@@ -8,6 +8,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/**
+ * Admin Controller for live RSA Key Rotation simulation.
+ * 
+ * PRODUCTION SECURITY GUARD NOTE:
+ * In a production enterprise deployment, this endpoint MUST be protected with strict security controls:
+ * 1. Spring Security Role Guard: @PreAuthorize("hasRole('ROLE_SYSTEM_ADMIN')")
+ * 2. Infrastructure Security: Mutual TLS (mTLS) client certificate verification
+ * 3. API Gateway Policy: Expose strictly on internal management VPN / VPC subnet (port 8090/actuator)
+ */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor

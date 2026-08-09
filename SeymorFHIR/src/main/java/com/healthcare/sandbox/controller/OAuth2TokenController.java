@@ -18,7 +18,7 @@ public class OAuth2TokenController {
 
     private final TokenStoreService tokenStoreService;
     private final JwtKeyService jwtKeyService;
-    private static final Map<String, String> AUTHORIZATION_CODES = new HashMap<>();
+    private static final Map<String, String> AUTHORIZATION_CODES = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * SMART-on-FHIR Authorization Endpoint

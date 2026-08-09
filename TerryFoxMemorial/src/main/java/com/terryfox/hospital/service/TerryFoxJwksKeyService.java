@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,13 +18,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class TerryFoxJwksKeyService {
 
     @Value("${seymour.auth.jwks-url:http://localhost:8090/.well-known/jwks.json}")
     private String jwksUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final Map<String, RSAPublicKey> keyCache = new ConcurrentHashMap<>();
 
     /**

@@ -41,4 +41,19 @@ public class TokenStoreService {
     public TokenMetadata getTokenMetadata(String rawToken) {
         return activeTokens.get(rawToken);
     }
+
+    /**
+     * Background scheduled eviction task running every 5 minutes (300,000 ms).
+     * Proactively purges expired tokens from memory to prevent RAM accumulation.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 300000)
+    public void cleanExpiredTokens() {
+        LocalDateTime now = LocalDateTime.now();
+        int initialSize = activeTokens.size();
+        activeTokens.entrySet().removeIf(entry -> now.isAfter(entry.getValue().expiresAt()));
+        int removedCount = initialSize - activeTokens.size();
+        if (removedCount > 0) {
+            log.info("[SCHEDULED_TOKEN_CLEANUP] Evicted {} expired OAuth2 token(s) from memory map.", removedCount);
+        }
+    }
 }
