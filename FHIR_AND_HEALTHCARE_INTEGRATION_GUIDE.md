@@ -18,7 +18,7 @@ Welcome to the **Healthcare Sandbox Integration & Interoperability Masterclass G
 10. [Langley Children's Hospital Backend (Java - Port 8081)](#10-langley-childrens-hospital-backend-java---port-8081)
 11. [Multi-Hospital Regional Interoperability Sync Pipeline](#11-multi-hospital-regional-interoperability-sync-pipeline)
 12. [Integration Engine Pipeline (Mirth Connect & Webhooks)](#12-integration-engine-pipeline-mirth-connect--webhooks)
-13. [SMART on FHIR OAuth2 Authentication & Launch Context](#13-smart-on-fhir-oauth2-authentication--launch-context)
+13. [SMART on FHIR — Deep Dive: OAuth2, Launch Sequences & JWT Security](#13-smart-on-fhir--deep-dive-oauth2-launch-sequences--jwt-security)
 14. [End-to-End API Testing & Curl Command Reference](#14-end-to-end-api-testing--curl-command-reference)
 15. [Reliable HL7 Message Audit, MSH-10 Idempotency & Tracing](#15-reliable-hl7-message-audit-msh-10-idempotency--tracing)
 16. [Patient Identity Conflict Resolution & PENDING_REVIEW Queue](#16-patient-identity-conflict-resolution--pending_review-queue)
