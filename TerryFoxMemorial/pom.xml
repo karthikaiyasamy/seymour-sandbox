@@ -43,6 +43,12 @@
         </dependency>
 
         <!-- PostgreSQL Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Springdoc OpenAPI 3 / Swagger UI -->
         <dependency>
             <groupId>org.springdoc</groupId>
