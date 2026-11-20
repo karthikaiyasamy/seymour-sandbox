@@ -1,4 +1,4 @@
-# Langley Children's Hospital — React Architecture Guide
+# Langley Children's Hospital: React Architecture Guide
 ### *A Mental Model & Architectural Bridge for Java & Systems Engineers*
 
 This document breaks down the architecture, lifecycle, and design patterns of the **Langley Children's Hospital Care Portal** frontend. It is written specifically for engineers with a strong backend (Java / Spring Boot / SQL) and HTML/JS background who are mastering modern React.
@@ -152,7 +152,7 @@ When `isLoading` or `patients` changes, React re-runs the function, calculates t
 
 #### `src/components/ControlsPanel.jsx`
 * **Key Pattern (Controlled Component):**
-  In old HTML, an `<input>` maintained its own internal text. In React, the input is "controlled"—its value is forced by React state (`value={searchQuery}`) and every keystroke delegates up to React (`onChange`).
+  In old HTML, an `<input>` maintained its own internal text. In React, the input is "controlled": its value is forced by React state (`value={searchQuery}`) and every keystroke delegates up to React (`onChange`).
 
 #### `src/components/PatientCard.jsx`
 * **Java Equivalent:** A presentation template for a `PatientDTO`.
