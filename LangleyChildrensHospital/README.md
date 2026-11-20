@@ -12,9 +12,10 @@ This workspace contains the pediatric portal system for Langley Children's Hospi
    - Persists pediatric patient entities, immunization records, and allergy profiles in PostgreSQL (`langley_db`).
    - Serves REST APIs (`/api/patients`) for the clinician frontend.
 
-2. **`langley-frontend` (React / Vite Dashboard — Port 5173):**
-   - Single-Page Application (SPA) built with React and Vite.
+2. **`langley-frontend` (React / Vite Dashboard — Port 8082):**
+   - Single-Page Application (SPA) built with React and Vite following BC Cancer / PHSA healthcare design.
    - Provides real-time polling to fetch synced pediatric patient records, immunizations, and allergy profiles.
+   - See detailed architectural walkthrough and learning guide in [ARCHITECTURE.md](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/ARCHITECTURE.md).
 
 ---
 
