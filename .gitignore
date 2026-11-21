@@ -1,9 +1,11 @@
 target/
 node_modules/
+dist/
 .idea/
 *.db
 bin/
 obj/
+.local/
 .agents/
 sql-practice/
 *.sql
