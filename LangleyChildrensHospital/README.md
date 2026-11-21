@@ -11,7 +11,7 @@ This workspace contains the pediatric portal system for Langley Children's Hospi
    - Validates BC PHN Modulus-11 checksums using `PhnValidator.java`.
    - Persists pediatric patient entities, immunization records, and allergy profiles in PostgreSQL (`langley_db`).
    - Serves REST APIs (`/api/patients`) for the clinician frontend.
-   - See database schema specifications and MySQL vs PostgreSQL trade-offs in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
+   - See database schema specifications and MySQL vs PostgreSQL trade-offs in [DATABASE_ARCHITECTURE.md](./langley-backend/DATABASE_ARCHITECTURE.md).
 
 2. **`langley-frontend` (React / Vite Dashboard: Port 8082):**
    - Single-Page Application (SPA) built with React and Vite following BC Cancer / PHSA healthcare design.
