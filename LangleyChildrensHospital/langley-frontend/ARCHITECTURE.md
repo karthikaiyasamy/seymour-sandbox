@@ -196,8 +196,8 @@ When `isLoading` or `patients` changes, React re-runs the function, calculates t
 
 To build an intuitive grasp of the codebase, inspect the files in this sequence:
 
-1. [src/config/appConfig.js](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/config/appConfig.js): See how properties are loaded.
-2. [src/services/api.js](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/services/api.js): See how standard HTTP calls are formatted.
-3. [src/hooks/usePatients.js](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/hooks/usePatients.js): See how React wraps HTTP calls into reactive state with polling.
-4. [src/App.jsx](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/App.jsx): See how the root component connects the custom hook to the UI.
-5. [src/components/PatientCard.jsx](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/components/PatientCard.jsx) & [PatientModal.jsx](file:///Users/karthik/dev/cerner/seymour-sandbox/LangleyChildrensHospital/langley-frontend/src/components/PatientModal.jsx): Inspect modular presentation and dialog logic.
+1. [src/config/appConfig.js](./src/config/appConfig.js): See how properties are loaded.
+2. [src/services/api.js](./src/services/api.js): See how standard HTTP calls are formatted.
+3. [src/hooks/usePatients.js](./src/hooks/usePatients.js): See how React wraps HTTP calls into reactive state with polling.
+4. [src/App.jsx](./src/App.jsx): See how the root component connects the custom hook to the UI.
+5. [src/components/PatientCard.jsx](./src/components/PatientCard.jsx) & [PatientModal.jsx](./src/components/PatientModal.jsx): Inspect modular presentation and dialog logic.
